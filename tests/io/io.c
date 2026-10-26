@@ -18,6 +18,11 @@ static unsigned set_attr(const char *path, unsigned attr);
     "sbb ax, ax" \
     parm [dx] [cx] value [ax];
 
+/* tests/io/seekfail.asm: fail one INT 21h function 42h call */
+void __cdecl seekfail_install(void);
+void __cdecl seekfail_remove(void);
+void __cdecl seekfail(int origin, unsigned skip);
+
 /* Replaces NAME with the n bytes at data, in binary. */
 static void put(const char *name, const char *data, unsigned n)
 {
@@ -50,6 +55,19 @@ int main(void)
     CHECK(close(99) == -1 && errno == EBADF);
     CHECK(read(99, buf, 1) == -1 && errno == EBADF);
     CHECK(write(99, "x", 1) == -1 && errno == EBADF);
+    /* handles outside the mode table, negative ones too */
+    errno = 0;
+    CHECK(read(-1, buf, 1) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(read(20, buf, 1) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(read(-1, buf, 0) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(write(-1, "x", 1) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(close(-1) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(setmode(-1, O_TEXT) == -1 && errno == EBADF);
 
     /* text mode is the default: \n is written as \r\n */
     fd = open("T.TXT", O_WRONLY | O_CREAT | O_TRUNC, S_IREAD | S_IWRITE);
@@ -149,6 +167,36 @@ int main(void)
     CHECK(i == 700);
     fd = open("S.TXT", O_RDONLY | O_BINARY);
     CHECK(chsize(fd, 5L) == -1 && errno == EACCES);
+    CHECK(close(fd) == 0);
+
+    /* chsize when a seek fails */
+    put("S.TXT", "0123456789", 10);
+    fd = open("S.TXT", O_RDWR | O_BINARY);
+    CHECK(lseek(fd, 3L, SEEK_SET) == 3);
+    seekfail_install();
+    /* finding the end: nothing changes */
+    seekfail(SEEK_END, 0);
+    errno = 0;
+    CHECK(chsize(fd, 4L) == -1 && errno == EBADF);
+    CHECK(filelength(fd) == 10 && lseek(fd, 0L, SEEK_CUR) == 3);
+    /* the seek to the new end: nothing is truncated */
+    seekfail(SEEK_SET, 0);
+    errno = 0;
+    CHECK(chsize(fd, 4L) == -1 && errno == EBADF);
+    CHECK(filelength(fd) == 10 && lseek(fd, 0L, SEEK_CUR) == 3);
+    /* restoring the position after shrinking, and after extending */
+    seekfail(SEEK_SET, 1);
+    errno = 0;
+    CHECK(chsize(fd, 4L) == -1 && errno == EBADF && filelength(fd) == 4);
+    CHECK(lseek(fd, 3L, SEEK_SET) == 3);
+    seekfail(SEEK_SET, 0);
+    errno = 0;
+    CHECK(chsize(fd, 8L) == -1 && errno == EBADF && filelength(fd) == 8);
+    /* and the hook is spent */
+    CHECK(lseek(fd, 3L, SEEK_SET) == 3 && chsize(fd, 6L) == 0);
+    CHECK(filelength(fd) == 6 && lseek(fd, 0L, SEEK_CUR) == 3);
+    seekfail(-1, 0);
+    seekfail_remove();
     CHECK(close(fd) == 0);
 
     /* access, and a read-only file */

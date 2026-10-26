@@ -10,11 +10,12 @@
 int __cdecl read(int fd, void *buf, unsigned n)
 {
     unsigned char *p = buf, *out, *end;
-    unsigned char *flags = &__libc16_fdflags[fd];
+    unsigned char *flags;
     unsigned long r;
     unsigned raw = 0;
 
-    if ((unsigned)fd >= FD_MAX || (*flags & FD_BINARY)) {
+    /* DOS checks a handle outside the table */
+    if ((unsigned)fd >= FD_MAX || (__libc16_fdflags[fd] & FD_BINARY)) {
         r = __libc16_dos_read(fd, buf, n);
         if (DOS_FAILED(r))
             return __libc16_doserr(DOS_AX(r));
@@ -22,6 +23,7 @@ int __cdecl read(int fd, void *buf, unsigned n)
     }
     if (n == 0)
         return 0;
+    flags = &__libc16_fdflags[fd];
     /* A byte that followed a CR at the end of the last read comes first;
      * it is already past the DOS file pointer, just before what follows. */
     if (*flags & FD_PENDING) {

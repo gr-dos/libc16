@@ -7,13 +7,14 @@
 
 int __cdecl setmode(int fd, int mode)
 {
-    unsigned char *flags = &__libc16_fdflags[fd];
+    unsigned char *flags;
     int old;
 
     if ((unsigned)fd >= FD_MAX) {
         errno = EBADF;
         return -1;
     }
+    flags = &__libc16_fdflags[fd];
     if (mode != O_TEXT && mode != O_BINARY) {
         errno = EINVAL;
         return -1;

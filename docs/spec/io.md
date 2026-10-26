@@ -31,7 +31,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 ## Handles and modes
 
-A handle (file descriptor) is a DOS handle. libc16 keeps a mode for handles 0 to 19 (the DOS default limit): **text** (the default, decision 9) or **binary**, and whether the handle **appends**. Handles 0 to 4, inherited from DOS, start in text mode.
+A handle (file descriptor) is a DOS handle. libc16 keeps a mode for handles 0 to 19 (the DOS default limit): **text** (the default, decision 9) or **binary**, and whether the handle **appends**. Handles 0 to 4, inherited from DOS, start in text mode. A handle outside 0 to 19, negative ones included, has no mode: the functions pass it to DOS, which fails with `EBADF` unless it is open, and never look it up in the table.
 
 **Text mode** applies to `read` and `write` only:
 
@@ -53,7 +53,7 @@ A handle (file descriptor) is a DOS handle. libc16 keeps a mode for handles 0 to
 - **`int write(int fd, const void *buf, unsigned n)`:** writes `n` bytes, translated in text mode, and returns `n`; or -1. Writing fewer bytes than asked (a full disk) is -1 with `ENOSPC`. `n` of 0 writes nothing and returns 0 (it never truncates).
 - **`long lseek(int fd, long offset, int origin)`:** moves the file pointer to `offset` from the start (`SEEK_SET`), the current position (`SEEK_CUR`) or the end (`SEEK_END`) and returns the new position, or -1L. An invalid `origin`, or a resulting position before the start, is `EINVAL`, and the position is unchanged. A byte kept by a text-mode `read` is discarded, and `SEEK_CUR` counts from just before it.
 - **`long filelength(int fd)`:** the length of the file in bytes, or -1L; the position is unchanged.
-- **`int chsize(int fd, long size)`:** extends the file with zero bytes or truncates it to `size` bytes; the position is unchanged. 0, or -1: `EINVAL` for a negative `size`, `ENOSPC` if the disk fills, `EACCES` if the handle was not opened for writing.
+- **`int chsize(int fd, long size)`:** extends the file with zero bytes or truncates it to `size` bytes; the position is unchanged. 0, or -1: `EINVAL` for a negative `size`, `ENOSPC` if the disk fills, `EACCES` if the handle was not opened for writing. If a seek to find the end of the file or the new end fails, the size is unchanged and the seek's error is returned. If only restoring the position fails, the size has changed but the result is still -1 with that error; a restore that fails after an earlier error leaves `errno` as that error set it.
 - **`int access(const char *path, int mode)`:** 0 if `path` (a file or directory) exists and allows `mode`: 0 existence, 2 write, 4 read, 6 both. A read-only file fails 2 and 6 with `EACCES`; a missing one fails with `ENOENT`; any other `mode` is `EINVAL`. Returns 0 or -1.
 - **`int setmode(int fd, int mode)`:** sets the handle's mode to `O_TEXT` or `O_BINARY` and returns the previous one; -1 with `EINVAL` for any other `mode`, or `EBADF` for a handle outside 0 to 19.
 
