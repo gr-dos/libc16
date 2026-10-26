@@ -35,6 +35,8 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `i8ls` | `crt/i8ls.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `i8rs` | `crt/i8rs.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `u8rs` | `crt/u8rs.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `ultoa` | `crt/ultoa.c` | `docs/spec/format.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `ltoa` | `crt/ltoa.c` | `docs/spec/format.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 
 ### Startup
 
@@ -53,6 +55,10 @@ The members for the compiler's 32- and 64-bit helpers (`i4m`, `u4d`, `i4d`, `i8m
 - **Symbols and register conventions:** its own call-site experiments, compiling one-line C functions and loops with the consumer flags and disassembling the objects with `wdis` (recorded in `docs/ABI.md`, "Compiler support routines").
 - **Results:** C99 6.5.5 (truncating division, `(a/b)*b + a%b == a`), 6.5.7 and 6.2.5; the algorithms are textbook ones (schoolbook multiplication by 16-bit words, restoring binary division, two's-complement negation).
 - **Expected test results:** `tests/arith/arith.c` compiled for the host, whose C arithmetic gives them.
+
+### Number formatting
+
+`ultoa` and `ltoa` were written by the same separate session, from `docs/spec/format.md` alone: the digit loop is the usual repeated division by the radix, done as two 32-by-16 `div` instructions (Open Watcom documentation of `#pragma aux`) so that neither links a divide helper. The expected test results were written by a short host Perl script from the same values.
 
 ## GR-DOS `compat/crt`
 

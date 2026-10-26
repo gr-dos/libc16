@@ -1,0 +1,4 @@
+# Number formatting tests (tests/run-dos): NAME STATUS PROGRAM [ARGUMENTS]
+
+ultoa   0  ultoa
+ltoa    0  ltoa
