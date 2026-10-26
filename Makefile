@@ -2,7 +2,7 @@
 #
 #   make          build the static library build/LIBC16.LIB
 #   make test     build the test programs against it and run the checks in
-#                 tests/ (link maps, 8086 instructions, selective linking)
+#                 tests/ (ABI, link maps, 8086 instructions, selective linking)
 #                 and the programs under DOSBox-X
 #   make clean    remove build/obj, build/tests and build/LIBC16.LIB
 #                 (fetched tools in build/tools are kept)
@@ -94,6 +94,7 @@ $(TEST_EXES) $(PLUS_EXES): scripts/check-map
 
 test: $(TEST_EXES) $(PLUS_EXES)
 	. ./$(TOOLS) && scripts/check-8086 $(MEMBERS) $(TEST_OBJS) $(PLUS)/unused.obj
+	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && tests/check-abi $(TEST)/abi $(TCFLAGS)
 	tests/check-members $(TEST)/startup tests/startup/members
 	tests/check-selective $(TEST)/startup $(PLUS)
 	tests/run-dos $(TEST)/startup tests/startup/cases
