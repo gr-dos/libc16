@@ -37,7 +37,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends dosbox-x
-          dosbox-x -version | head -1
+          dpkg-query -W dosbox-x
 
       - name: Build
         run: |
