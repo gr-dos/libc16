@@ -84,6 +84,19 @@ Optional members run code before `main` by adding a near function pointer to seg
 
 Linked only when `main` takes parameters. The command tail is split the way Microsoft C splits it (`crt/args.c`) (*tested*). `argv[0]` is `""`.
 
+### DOS 2.0
+
+No DOS 2.0 system is available to run the tests on: Microsoft's MIT release of MS-DOS 2.0 (github.com/microsoft/MS-DOS, `v2.0/bin`) has `MSDOS.SYS` and `COMMAND.COM` but no PC BIOS module to boot them with. DOS 2.0 compatibility is therefore checked against that release's own system-call documentation, `v2.0/bin/SYSCALL.DOC`:
+
+| Startup needs | DOS 2.0 (`SYSCALL.DOC`) |
+|---|---|
+| Resize the memory block, INT 21h AH = 4Ah, `ES` = block, `BX` = paragraphs | SetBlock, function 4Ah |
+| Terminate with a return code, INT 21h AH = 4Ch, `AL` = code | Exit, function 4Ch |
+| Command tail at PSP offset 80h | Exec's parameter block: "command line at 80h" |
+| `.EXE` programs loaded with a PSP ("program header") | Exec, function 4Bh |
+
+`SYSCALL.DOC` does not describe the registers on entry to an `.EXE` (`DS` = `ES` = PSP, `SS:SP` and `CS:IP` from the header); that is from Ralf Brown's Interrupt List, which gives it for every DOS version. The tests also call INT 21h function 62h (get PSP), which is DOS 3.0; libc16 itself does not. The tests run under DOSBox-X, whose DOS reports version 5.
+
 ## Segments
 
 The startup declares `dosseg` ordering. `DGROUP` holds `CONST`, `CONST2`, `_DATA`, the init table, `_BSS` and `STACK`, in that order. wlink defines `_edata` (start of BSS) and `_end` (end of BSS).
