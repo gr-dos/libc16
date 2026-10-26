@@ -22,6 +22,10 @@ is linked with 4 KiB more stack, so its block must be 256 paragraphs
 larger, and the largest free block must be at least 512 KiB, which it
 could not be had the startup kept all memory.
 
+Also reads STKTOP.OUT, written by stktop.exe, and checks that
+C<__libc16_stack_top> is the offset of the end of DGROUP, from its map:
+the top of the stack.
+
 =cut
 
 my ($dir) = @ARGV;
@@ -40,6 +44,14 @@ for my $name (qw(memory memstk)) {
   check("$name free >= 32768", $out{free} >= 32768 ? 1 : 0, 1);
 }
 check('memstk block - memory block', $block{memstk} - $block{memory}, 256);
+
+{
+  my %out = map { /^(\w+) (\w+)/ ? ($1 => $2) : () } read_lines("$dir/STKTOP.OUT");
+  my ($offset, $size) = map { /^DGROUP\s+[0-9a-f]{4}:([0-9a-f]{4})\s+([0-9a-f]{8})/ ? (hex $1, hex $2) : () }
+    read_lines("$dir/stktop.MAP");
+  die "$dir/stktop.MAP: no DGROUP\n" unless defined $size;
+  check('stktop __libc16_stack_top', $out{top}, $offset + $size);
+}
 exit $failed;
 
 sub check ($what, $got, $want) {

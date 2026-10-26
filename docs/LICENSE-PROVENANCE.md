@@ -37,6 +37,8 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `u8rs` | `crt/u8rs.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `ultoa` | `crt/ultoa.c` | `docs/spec/format.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `ltoa` | `crt/ltoa.c` | `docs/spec/format.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `malloc` | `crt/malloc.c` | `docs/spec/heap.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `free` | `crt/free.c` | `docs/spec/heap.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 
 ### Startup
 
@@ -59,6 +61,10 @@ The members for the compiler's 32- and 64-bit helpers (`i4m`, `u4d`, `i4d`, `i8m
 ### Number formatting
 
 `ultoa` and `ltoa` were written by the same separate session, from `docs/spec/format.md` alone: the digit loop is the usual repeated division by the radix, done as two 32-by-16 `div` instructions (Open Watcom documentation of `#pragma aux`) so that neither links a divide helper. The expected test results were written by a short host Perl script from the same values.
+
+### Heap
+
+`malloc` and `free` were written by the same separate session from `docs/spec/heap.md` and `docs/spec/startup.md`: a first-fit list of blocks with a one-word size header, merging free neighbours during the search, the usual textbook design. Its sources were C99 7.20.3; Ralf Brown's Interrupt List for INT 21h functions 4Ah (resize memory block) and, in the tests, 48h and 49h; and Open Watcom documentation of `#pragma aux`. The same session added `___libc16_stack_top` to `cstart` (an empty segment after `STACK`, as `docs/spec/heap.md` allows), after linking the test programs to check that their maps put it at the top of the stack and that the programs are byte-for-byte unchanged.
 
 ## GR-DOS `compat/crt`
 

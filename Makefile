@@ -50,7 +50,7 @@ TEST      := $(BUILD)/tests
 TCFLAGS   := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we -Iinclude -Itests/support
 HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
 SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
-STARTUP   := status dirty bss memory args
+STARTUP   := status dirty bss memory args stktop
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
 SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$(SUITES))))
 SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
@@ -78,13 +78,17 @@ $(PLUS_LIB): $(LIB) $(PLUS)/unused.obj
 
 # Each program's objects; memstk is memory with 4 KiB more stack.
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memory.EXE $(d)/memstk.EXE): $(TEST)/startup/memory.obj
-$(foreach d,$(TEST)/startup $(PLUS),$(d)/args.EXE $(d)/memory.EXE $(d)/memstk.EXE): \
+$(foreach d,$(TEST)/startup $(PLUS),$(d)/args.EXE $(d)/memory.EXE $(d)/memstk.EXE $(d)/stktop.EXE): \
 	$(TEST)/support/testio.obj
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memstk.EXE): LDOPTS := option stack=6144
 $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP)): $(TEST)/startup/%.EXE: $(TEST)/startup/%.obj
 $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
 
 $(SUITE_EXES): $(TEST)/%.EXE: $(TEST)/%.obj $(TEST)/support/testio.obj
+
+# bigstk runs heap.c's checks with a larger stack.
+$(TEST)/heap/bigstk.obj: tests/heap/heap.c
+$(TEST)/heap/bigstk.EXE: LDOPTS := option stack=8192
 
 $(TEST_EXES) $(SUITE_EXES): LINKLIB := $(LIB)
 $(PLUS_EXES): LINKLIB := $(PLUS_LIB)

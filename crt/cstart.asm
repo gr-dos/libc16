@@ -47,8 +47,16 @@ STACK   segment para stack 'STACK'
         db      2048 dup (?)
 STACK   ends
 
+; An empty segment after STACK, so that its label is the top of the stack
+; whatever size the linker gives STACK. It adds no bytes to a program;
+; the heap uses the label as its start.
+LIBC16_STACK_END segment byte public 'STACK'
+        public  ___libc16_stack_top
+___libc16_stack_top label byte  ; C __libc16_stack_top: top of the stack
+LIBC16_STACK_END ends
+
 DGROUP  group   CONST, CONST2, _DATA, LIBC16_INIT_BEGIN, LIBC16_INIT, \
-                LIBC16_INIT_END, _BSS, STACK
+                LIBC16_INIT_END, _BSS, STACK, LIBC16_STACK_END
 
         extrn   main_:near
         extrn   _edata:byte, _end:byte      ; defined by wlink

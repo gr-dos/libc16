@@ -5,6 +5,7 @@ dirty   0  dirty
 bss     0  bss
 memory  0  memory
 memstk  0  memstk
+stktop  0  stktop
 
 # argc/argv, split as Microsoft C does (crt/args.c)
 argnone 0  args

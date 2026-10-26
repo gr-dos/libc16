@@ -1,0 +1,7 @@
+# The libc16 members each heap test program links (tests/check-members).
+# malloc needs errno; free alone needs nothing else.
+
+heap:     cstart malloc free errno
+bigstk:   cstart malloc free errno
+blocked:  cstart malloc free errno
+freeonly: cstart free

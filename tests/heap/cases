@@ -1,0 +1,6 @@
+# Heap tests (tests/run-dos): NAME STATUS PROGRAM [ARGUMENTS]
+
+heap     0  heap
+bigstk   0  bigstk
+blocked  0  blocked
+freeonly 0  freeonly

@@ -7,4 +7,5 @@ dirty:  cstart
 bss:    cstart
 memory: cstart
 memstk: cstart
+stktop: cstart
 args:   argv args cstart

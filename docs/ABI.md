@@ -113,7 +113,7 @@ No DOS 2.0 system is available to run the tests on: Microsoft's MIT release of M
 
 ## Segments
 
-The startup declares `dosseg` ordering. `DGROUP` holds `CONST`, `CONST2`, `_DATA`, the init table, `_BSS` and `STACK`, in that order. wlink defines `_edata` (start of BSS) and `_end` (end of BSS).
+The startup declares `dosseg` ordering. `DGROUP` holds `CONST`, `CONST2`, `_DATA`, the init table, `_BSS`, `STACK` and the empty `LIBC16_STACK_END`, in that order. wlink defines `_edata` (start of BSS) and `_end` (end of BSS); the startup's `___libc16_stack_top` labels the top of the stack, where the heap starts (*tested*).
 
 ## Known issues
 

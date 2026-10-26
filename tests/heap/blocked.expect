@@ -1,0 +1,3 @@
+DOS block allocated ok
+malloc fails with ENOMEM ok
+malloc works once DOS memory is free ok
