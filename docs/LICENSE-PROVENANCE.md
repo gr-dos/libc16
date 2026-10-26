@@ -39,6 +39,14 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `ltoa` | `crt/ltoa.c` | `docs/spec/format.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `malloc` | `crt/malloc.c` | `docs/spec/heap.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `free` | `crt/free.c` | `docs/spec/heap.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `errno`, `memcmp`, `memcpy`, `memset`, `strcat`, `strchr`, `strcmp`, `strcpy`, `strdup`, `strerror`, `stricmp`, `strlen`, `strlwr`, `strncmp`, `strrchr` | `crt/*.c` | `docs/spec/string.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
+| `fdtab`, `doserr`, `open`, `close`, `read`, `write`, `lseek`, `filelen`, `chsize`, `access`, `setmode` | `crt/*.c`, `crt/io16.h` | `docs/spec/io.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
+| `stdin`, `stdout`, `stderr`, `fopen`, `fclose`, `fflush`, `fgetc`, `fgets`, `fputc`, `fputs`, `ungetc`, `feof`, `ferror`, `getc`, `putc`, `putchar` | `crt/*.c`, `crt/stdio16.h` | `docs/spec/stdio.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
+| `dosfind`, `findfrst`, `findnext`, `int86`, `getenv`, `fullpath` | `crt/*.c`, `crt/int86.asm`, `crt/dos16.h` | `docs/spec/dos.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
+
+### Strings, I/O, streams and the DOS interface
+
+These members are ordinary library code, not startup, arithmetic helpers, heap or formatting, so decision 6 lets the session that wrote their specs write them too. They were written from `docs/spec/string.md`, `io.md`, `stdio.md` and `dos.md`; C99 clauses 7.19 and 7.21; Ralf Brown's Interrupt List for the INT 21h functions they call; Microsoft's documentation of the `io.h`, `fcntl.h` and `dos.h` interfaces; and experiments in DOSBox-X. No Open Watcom runtime source or header was read and none of its libraries was disassembled. The `strerror` texts are the traditional Unix messages.
 
 ### Startup
 

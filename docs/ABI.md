@@ -11,7 +11,7 @@ A consumer compiles with Open Watcom's **default register convention** (decision
 
 ```text
 wcc -zl -zld -x -ms -0 -s -bt=dos -I$(LIBC16_ROOT)/include ...
-wlink option nodefaultlibs format dos ... library $(LIBC16_ROOT)/LIBC16.LIB
+wlink option nodefaultlibs format dos ... library $(LIBC16_ROOT)/build/LIBC16.LIB
 ```
 
 | Flag | Why |
