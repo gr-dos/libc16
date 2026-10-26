@@ -5,7 +5,7 @@
 
         .8086
 
-DGROUP  group   XIB, XI, XIE
+DGROUP  group   LIBC16_INIT_BEGIN, LIBC16_INIT, LIBC16_INIT_END
 
 _TEXT   segment word public 'CODE'
         public  __argc
@@ -13,14 +13,14 @@ _TEXT   segment word public 'CODE'
 __argc  label   byte
 _TEXT   ends
 
-XIB     segment word public 'DATA'
-XIB     ends
+LIBC16_INIT_BEGIN segment word public 'DATA'
+LIBC16_INIT_BEGIN ends
 
-XI      segment word public 'DATA'
+LIBC16_INIT segment word public 'DATA'
         dw      __libc16_args_
-XI      ends
+LIBC16_INIT ends
 
-XIE     segment word public 'DATA'
-XIE     ends
+LIBC16_INIT_END segment word public 'DATA'
+LIBC16_INIT_END ends
 
         end

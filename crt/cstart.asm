@@ -9,23 +9,26 @@
 ;   - shrinks the program's memory block to the top of the stack;
 ;   - zeroes BSS, _edata to _end (both defined by wlink), and records the
 ;     PSP segment in _psp;
-;   - calls each init routine in the XI table;
+;   - calls each init routine in the LIBC16_INIT table;
 ;   - calls main_ (register convention: AX = argc, DX = argv, both 0 unless
 ;     the argv member is linked) and terminates with its return value as
 ;     the exit status.
 ;
 ; Init routines are near procedures that take no arguments and preserve
 ; SI, DI, BP, DS and SS; a C function with the default convention does.
-; A member adds one by contributing a near pointer to XI, declaring XIB,
-; XI and XIE in that order so the table stays between its two markers
-; whichever member the linker reads first.
+; A member adds one by contributing a near pointer to LIBC16_INIT,
+; declaring LIBC16_INIT_BEGIN, LIBC16_INIT and LIBC16_INIT_END in that
+; order so the table stays between its two markers whichever member the
+; linker reads first.
 ;
 ; Needs DOS 2.0: INT 21h functions 4Ah and 4Ch.
 
         .8086
         dosseg
 
-DGROUP  group   CONST, CONST2, _DATA, XIB, XI, XIE, _BSS, STACK
+DGROUP  group   CONST, CONST2, _DATA
+DGROUP  group   LIBC16_INIT_BEGIN, LIBC16_INIT, LIBC16_INIT_END
+DGROUP  group   _BSS, STACK
 
 _TEXT   segment word public 'CODE'
         assume  cs:_TEXT, ds:DGROUP
@@ -71,8 +74,8 @@ _cstart_:
         rep     stosb
         mov     __psp, dx
 
-        mov     si, offset DGROUP:xi_begin
-init:   cmp     si, offset DGROUP:xi_end
+        mov     si, offset DGROUP:init_begin
+init:   cmp     si, offset DGROUP:init_end
         jae     run
         call    word ptr [si]
         inc     si
@@ -96,16 +99,16 @@ CONST2  ends
 _DATA   segment word public 'DATA'
 _DATA   ends
 
-XIB     segment word public 'DATA'
-xi_begin label word
-XIB     ends
+LIBC16_INIT_BEGIN segment word public 'DATA'
+init_begin label word
+LIBC16_INIT_BEGIN ends
 
-XI      segment word public 'DATA'
-XI      ends
+LIBC16_INIT segment word public 'DATA'
+LIBC16_INIT ends
 
-XIE     segment word public 'DATA'
-xi_end  label word
-XIE     ends
+LIBC16_INIT_END segment word public 'DATA'
+init_end label word
+LIBC16_INIT_END ends
 
 _BSS    segment word public 'BSS'
         public  __psp, ___libc16_argc, ___libc16_argv
