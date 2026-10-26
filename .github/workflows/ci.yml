@@ -1,0 +1,59 @@
+# Build LIBC16.LIB and run make test: the ABI, link-map, 8086 and selective
+# linking checks and the test programs under DOSBox-X (decisions 5 and 7).
+# Actions are pinned to the same commits as GR-DOS's CI.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: shogo82148/actions-setup-perl@a99edab616eaa8a66bbc16363c77a83361e5f2ce # v1.44.3
+        with:
+          perl-version: 5.42.3
+          enable-modules-cache: false
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/tools
+          key: tools-ubuntu-24.04-${{ hashFiles('scripts/fetch-jwasm', 'scripts/fetch-watcom', 'patches/jwasm/*.patch') }}
+
+      - name: Install DOSBox-X
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends dosbox-x
+          dosbox-x -version | head -1
+
+      - name: Build
+        run: |
+          mkdir -p build
+          make 2>&1 | tee build/make.log
+
+      - name: Test
+        run: make test 2>&1 | tee build/test.log
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: libc16
+          path: |
+            build/LIBC16.LIB
+            build/make.log
+            build/test.log
+            build/tests/
+          if-no-files-found: warn
