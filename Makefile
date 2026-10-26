@@ -19,7 +19,9 @@ TOOLS := $(BUILD)/tools.env
 # Library members are compiled for the small model and the 8086, with no
 # stack checks, and see no headers or libraries of Open Watcom's: -x ignores
 # INCLUDE and WATCOM, and -zl leaves out default-library records.
-WCFLAGS := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we
+# Members also see libc16's own headers, so that public functions are
+# defined __cdecl as they are declared.
+WCFLAGS := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we -Iinclude
 JWFLAGS := -q
 
 SOURCES := $(wildcard crt/*.asm crt/*.c)
@@ -35,23 +37,27 @@ $(OBJ)/%.obj: crt/%.asm $(TOOLS)
 	mkdir -p $(@D)
 	. ./$(TOOLS) && "$$JWASM" $(JWFLAGS) -Fo$@ $<
 
-$(OBJ)/%.obj: crt/%.c $(wildcard crt/*.h) $(TOOLS)
+$(OBJ)/%.obj: crt/%.c $(wildcard crt/*.h include/*.h include/sys/*.h) $(TOOLS)
 	mkdir -p $(@D)
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && wcc $(WCFLAGS) -fo=$@ $<
 
 # Test programs are built as a consumer builds (decision 2): the default
 # register convention, libc16's headers only, and no Open Watcom library.
-TEST     := $(BUILD)/tests
-TCFLAGS  := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we -Itests/support
-STARTUP  := status dirty bss memory args
+# Each directory tests/SUITE with a cases file is a suite for tests/run-dos;
+# every tests/SUITE/NAME.c is a program, linked with tests/support/testio.c,
+# except the startup programs, whose rules follow.
+TEST      := $(BUILD)/tests
+TCFLAGS   := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we -Iinclude -Itests/support
+HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
+SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
+STARTUP   := status dirty bss memory args
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
-TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/support/testio.obj
+SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$(SUITES))))
+SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
+TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/support/testio.obj \
+	$(SUITE_EXES:.EXE=.obj)
 
-$(TEST)/support/%.obj: tests/support/%.c tests/support/testio.h $(TOOLS)
-	mkdir -p $(@D)
-	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && wcc $(TCFLAGS) -fo=$@ $<
-
-$(TEST)/startup/%.obj: tests/startup/%.c tests/support/testio.h $(TOOLS)
+$(TEST)/%.obj: tests/%.c $(HEADERS) $(TOOLS)
 	mkdir -p $(@D)
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && wcc $(TCFLAGS) -fo=$@ $<
 
@@ -78,27 +84,33 @@ $(foreach d,$(TEST)/startup $(PLUS),$(d)/memstk.EXE): LDOPTS := option stack=614
 $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP)): $(TEST)/startup/%.EXE: $(TEST)/startup/%.obj
 $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
 
-$(TEST_EXES): LINKLIB := $(LIB)
+$(SUITE_EXES): $(TEST)/%.EXE: $(TEST)/%.obj $(TEST)/support/testio.obj
+
+$(TEST_EXES) $(SUITE_EXES): LINKLIB := $(LIB)
 $(PLUS_EXES): LINKLIB := $(PLUS_LIB)
-$(TEST_EXES): $(LIB)
+$(TEST_EXES) $(SUITE_EXES): $(LIB)
 $(PLUS_EXES): $(PLUS_LIB)
 
 # No default libraries: the map must show only the objects and the library
 # (scripts/check-map), and X.MEMBERS lists the library members linked.
-$(TEST_EXES) $(PLUS_EXES): scripts/check-map
+$(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES): scripts/check-map
 	mkdir -p $(@D)
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && wlink option quiet, nodefaultlibs, \
 	  map=$(@:.EXE=.MAP) $(LDOPTS) format dos name $@ $(foreach o,$(filter %.obj,$^),file $(o)) \
 	  library $(LINKLIB)
 	scripts/check-map $(@:.EXE=.MAP) $(LINKLIB) $(filter %.obj,$^) > $(@:.EXE=.MEMBERS)
 
-test: $(TEST_EXES) $(PLUS_EXES)
+test: $(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES)
 	. ./$(TOOLS) && scripts/check-8086 $(MEMBERS) $(TEST_OBJS) $(PLUS)/unused.obj
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && tests/check-abi $(TEST)/abi $(TCFLAGS)
 	tests/check-members $(TEST)/startup tests/startup/members
 	tests/check-selective $(TEST)/startup $(PLUS)
 	tests/run-dos $(TEST)/startup tests/startup/cases
 	tests/startup/check-memory $(TEST)/startup
+	set -e; for s in $(filter-out startup,$(SUITES)); do \
+	  if [ -e tests/$$s/members ]; then tests/check-members $(TEST)/$$s tests/$$s/members; fi; \
+	  tests/run-dos $(TEST)/$$s tests/$$s/cases; \
+	done
 
 # Paths of the fetched tools, as shell assignments.
 $(TOOLS): scripts/fetch-jwasm scripts/fetch-watcom $(wildcard patches/jwasm/*.patch)

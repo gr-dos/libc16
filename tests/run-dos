@@ -4,6 +4,7 @@ use 5.042;
 use warnings;
 use autodie;
 use File::Basename qw(dirname);
+use File::Copy qw(copy);
 use File::Spec;
 
 =head1 NAME
@@ -28,7 +29,9 @@ NAME.expect exists next to CASES, its output matches it. In an expect file
 a line C</REGEX/> matches a line of output by regular expression; any
 other line must equal its line of output. Blank lines and lines starting
 with # are ignored. NAME is a DOS file name without extension, at most 8
-characters. Cases run in order, in one DOSBox-X session.
+characters. Cases run in order, in one DOSBox-X session. The files in the
+directory F<data> next to CASES, if there is one, are copied into DIR
+first, for cases that read them.
 
 Prints one line per case and exits 1 if any case fails.
 
@@ -50,6 +53,14 @@ while (my $line = <$in>) {
     command => join ' ', grep { defined } $program, $args };
 }
 close $in;
+
+if (-d "$expect_dir/data") {
+  opendir my $dh, "$expect_dir/data";
+  for my $file (grep { -f "$expect_dir/data/$_" } readdir $dh) {
+    copy("$expect_dir/data/$file", "$dir/" . uc $file) or die "copy $file: $!\n";
+  }
+  closedir $dh;
+}
 
 my @batch;
 for my $case (@cases) {
