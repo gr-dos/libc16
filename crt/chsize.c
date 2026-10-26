@@ -11,7 +11,7 @@ int __cdecl chsize(int fd, long size)
     char zeros[512];
     long here, end;
     unsigned long r;
-    int rc = 0;
+    int rc = 0, err;
 
     if (size < 0) {
         errno = EINVAL;
@@ -19,12 +19,16 @@ int __cdecl chsize(int fd, long size)
     }
     if ((here = lseek(fd, 0L, SEEK_CUR)) == -1L)
         return -1;
-    end = lseek(fd, 0L, SEEK_END);
-    if (size < end) {
-        lseek(fd, size, SEEK_SET);
-        r = __libc16_dos_write(fd, zeros, 0);
-        if (DOS_FAILED(r))
-            rc = __libc16_doserr(DOS_AX(r));
+    if ((end = lseek(fd, 0L, SEEK_END)) == -1L) {
+        rc = -1;
+    } else if (size < end) {
+        if (lseek(fd, size, SEEK_SET) == -1L) {
+            rc = -1;
+        } else {
+            r = __libc16_dos_write(fd, zeros, 0);
+            if (DOS_FAILED(r))
+                rc = __libc16_doserr(DOS_AX(r));
+        }
     } else {
         memset(zeros, 0, sizeof zeros);
         while (end < size) {
@@ -43,6 +47,14 @@ int __cdecl chsize(int fd, long size)
             end += n;
         }
     }
-    lseek(fd, here, SEEK_SET);
+    /* A failure to restore the position is reported, but does not
+     * replace an earlier error. */
+    err = errno;
+    if (lseek(fd, here, SEEK_SET) == -1L) {
+        if (rc == 0)
+            rc = -1;
+        else
+            errno = err;
+    }
     return rc;
 }
