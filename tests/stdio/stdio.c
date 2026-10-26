@@ -16,6 +16,7 @@ int main(void)
     CHECK(fputs("to stdout\n", stdout) == 0);
     CHECK(fputc('x', stdout) == 'x' && fputc('\n' + 256, stdout) == '\n');
     CHECK(fputs("", stdout) == 0);
+    CHECK(putc('y', stdout) == 'y' && (putc)('\n', stdout) == '\n');
     CHECK(fflush(stdout) == 0 && fflush(NULL) == 0 && !ferror(stdout));
     CHECK(fputs("to stderr\n", stderr) == 0);
 
@@ -27,7 +28,7 @@ int main(void)
     CHECK(fclose(fp) == 0);
     fp = fopen("T.TXT", "rb");
     CHECK(fp != NULL);
-    CHECK(fgetc(fp) == 'x' && fgetc(fp) == '\r' && fgetc(fp) == '\n');
+    CHECK(fgetc(fp) == 'x' && getc(fp) == '\r' && (getc)(fp) == '\n');
     CHECK(fgets(line, sizeof line, fp) == line && strcmp(line, "y\r\n") == 0);
     CHECK(!feof(fp) && fgetc(fp) == EOF && feof(fp) && !ferror(fp));
     CHECK(fgetc(fp) == EOF && fgets(line, sizeof line, fp) == NULL);

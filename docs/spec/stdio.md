@@ -13,7 +13,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 ## Scope
 
-libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) with their C89 semantics, and no others: `fopen`, `fclose`, `fflush`, `fgetc`, `fgets`, `fputc`, `fputs`, `ungetc`, `feof`, `ferror`. The formatted functions (`printf` and the rest) are not provided (DESIGN.md §7; decision 3).
+libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) with their C89 semantics, and no others: `fopen`, `fclose`, `fflush`, `fgetc`, `getc`, `fgets`, `fputc`, `putc`, `fputs`, `ungetc`, `feof`, `ferror`. The formatted functions (`printf` and the rest) are not provided (DESIGN.md §7; decision 3).
 
 ## Streams
 
@@ -33,6 +33,7 @@ libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) w
 - **`int fputs(const char *s, FILE *fp)`:** writes `s` without its terminator; returns 0, or `EOF` with the error indicator set.
 - **`int ungetc(int c, FILE *fp)`:** pushes back one byte, which the next read returns; clears the end-of-file indicator. Pushing `EOF`, or a second byte before the first is read, fails with `EOF`.
 - **`int feof(FILE *fp)`, `int ferror(FILE *fp)`:** the indicators; also macros.
+- **`int getc(FILE *fp)`, `int putc(int c, FILE *fp)`:** `fgetc` and `fputc`; also macros, which evaluate `fp` once.
 
 Reading from a stream opened for writing, or writing to one opened for reading, fails with the error indicator set.
 

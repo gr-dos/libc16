@@ -55,9 +55,13 @@ char * __cdecl fgets(char *s, int n, FILE *fp);
 FILE * __cdecl fopen(const char *path, const char *mode);
 int    __cdecl fputc(int c, FILE *fp);
 int    __cdecl fputs(const char *s, FILE *fp);
+int    __cdecl getc(FILE *fp);
+int    __cdecl putc(int c, FILE *fp);
 int    __cdecl ungetc(int c, FILE *fp);
 
 #define feof(fp)   (((fp)->_flag & _IOEOF) != 0)
 #define ferror(fp) (((fp)->_flag & _IOERR) != 0)
+#define getc(fp)    fgetc(fp)
+#define putc(c, fp) fputc(c, fp)
 
 #endif
