@@ -2,7 +2,7 @@
 
 **Members:** `cstart` (core startup), `argv` (hook), `args` (command-tail parser)  
 **Minimum DOS:** 2.0  
-**Tests:** `tests/startup` (run by `tests/run-dos`, `tests/check-members`, `tests/startup/check-memory`), `tests/check-abi`, `tests/check-selective`
+**Tests:** `tests/startup` (run by `tests/run-dos`, `tests/check-members`, `tests/startup/check-memory`, `tests/startup/check-null`), `tests/check-abi`, `tests/check-selective`
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
 
@@ -34,7 +34,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 **Null pointer:** no object of the program may be at offset 0 of `DGROUP`, because a pointer to it would be a null pointer (C99 6.3.2.3). The startup reserves the start of `DGROUP`, before `CONST`, with at least 2 bytes that hold no C object, whatever the size of the code and the order of the other modules.
 
-**Segments:** declares `dosseg` ordering; `DGROUP` groups `CONST`, `CONST2`, `_DATA` (class `DATA`), `LIBC16_INIT_BEGIN`, `LIBC16_INIT`, `LIBC16_INIT_END` (class `DATA`, in that order), `_BSS` (class `BSS`), `STACK` (class `STACK`, combine type stack, default 2048 bytes) and `LIBC16_STACK_END` (class `STACK`, byte aligned, empty).
+**Segments:** declares `dosseg` ordering; `DGROUP` groups `LIBC16_NULL` (class `BEGDATA`, word aligned, 2 bytes: the reserved start, which `dosseg` puts first in `DGROUP` whatever the order of the modules), `CONST`, `CONST2`, `_DATA` (class `DATA`), `LIBC16_INIT_BEGIN`, `LIBC16_INIT`, `LIBC16_INIT_END` (class `DATA`, in that order), `_BSS` (class `BSS`), `STACK` (class `STACK`, combine type stack, default 2048 bytes) and `LIBC16_STACK_END` (class `STACK`, byte aligned, empty).
 
 **Top of the stack:** `__libc16_stack_top` (C name, declared `extern char __cdecl __libc16_stack_top[]`; symbol `___libc16_stack_top`) is a label with no storage at the start of `LIBC16_STACK_END`, so its offset in `DGROUP` is the top of the stack for any `option stack=n`: the address step 2 sets `SP` to, and where the program's memory block ends, rounded up to a paragraph (step 3). The heap starts there (`docs/spec/heap.md`). It adds no bytes to a program, so programs that do not use it are unchanged. `tests/startup/check-memory` checks it against the end of `DGROUP` in the map.
 

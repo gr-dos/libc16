@@ -66,6 +66,8 @@ The members for the compiler's 32- and 64-bit helpers (`i4m`, `u4d`, `i4d`, `i8m
 
 `malloc` and `free` were written by the same separate session from `docs/spec/heap.md` and `docs/spec/startup.md`: a first-fit list of blocks with a one-word size header, merging free neighbours during the search, the usual textbook design. Its sources were C99 7.20.3; Ralf Brown's Interrupt List for INT 21h functions 4Ah (resize memory block) and, in the tests, 48h and 49h; and Open Watcom documentation of `#pragma aux`. The same session added `___libc16_stack_top` to `cstart` (an empty segment after `STACK`, as `docs/spec/heap.md` allows), after linking the test programs to check that their maps put it at the top of the stack and that the programs are byte-for-byte unchanged.
 
+A later separate session, under the same instructions, added `LIBC16_NULL` to `cstart` (`docs/spec/startup.md`, "Null pointer"): 2 bytes of class `BEGDATA` at the start of `DGROUP`. Its sources were the spec, C99 6.3.2.3 and its own experiments, reading wlink maps of its own objects: a segment of class `DATA` declared first in `cstart` still came after the `DATA` segments of a C object linked before it, while one of class `BEGDATA` came first in `DGROUP` under `dosseg`.
+
 ## GR-DOS `compat/crt`
 
 Not used. DESIGN.md §12 says it was written after examining Watcom runtime disassembly; GR-DOS's `docs/provenance.md` (its decision 20) says it was written from documented interfaces. The two disagree; this is to be resolved in GR-DOS during M3, when libc16 replaces it.

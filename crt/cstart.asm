@@ -11,11 +11,18 @@
         dosseg
 
 ; Segment order (spec, "Segments"). The code segment matches the one wcc
-; emits; the data segments are listed in DGROUP order, so that this module
-; fixes that order whichever object the linker sees first.
+; emits; the data segments are listed in DGROUP order.
 
 _TEXT   segment byte public 'CODE'
 _TEXT   ends
+
+; The start of DGROUP, so that no C object is at offset 0, where a pointer
+; to it would be a null pointer (spec, "Null pointer"). Under dosseg the
+; linker puts class BEGDATA first in DGROUP, even before the DATA
+; segments of objects it sees before this one.
+LIBC16_NULL segment word public 'BEGDATA'
+        dw      0
+LIBC16_NULL ends
 
 CONST   segment word public 'DATA'
 CONST   ends
@@ -55,8 +62,8 @@ LIBC16_STACK_END segment byte public 'STACK'
 ___libc16_stack_top label byte  ; C __libc16_stack_top: top of the stack
 LIBC16_STACK_END ends
 
-DGROUP  group   CONST, CONST2, _DATA, LIBC16_INIT_BEGIN, LIBC16_INIT, \
-                LIBC16_INIT_END, _BSS, STACK, LIBC16_STACK_END
+DGROUP  group   LIBC16_NULL, CONST, CONST2, _DATA, LIBC16_INIT_BEGIN, \
+                LIBC16_INIT, LIBC16_INIT_END, _BSS, STACK, LIBC16_STACK_END
 
         extrn   main_:near
         extrn   _edata:byte, _end:byte      ; defined by wlink

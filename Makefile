@@ -50,16 +50,21 @@ TEST      := $(BUILD)/tests
 TCFLAGS   := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we -Iinclude -Itests/support
 HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
 SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
-STARTUP   := status dirty bss memory args stktop
+STARTUP   := status dirty bss memory args stktop nullstr
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
 SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$(SUITES))))
 SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
-TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/support/testio.obj \
+TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj \
+	$(TEST)/support/testio.obj \
 	$(SUITE_EXES:.EXE=.obj)
 
 $(TEST)/%.obj: tests/%.c $(HEADERS) $(TOOLS)
 	mkdir -p $(@D)
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && wcc $(TCFLAGS) -fo=$@ $<
+
+$(TEST)/%.obj: tests/%.asm $(TOOLS)
+	mkdir -p $(@D)
+	. ./$(TOOLS) && "$$JWASM" $(JWFLAGS) -Fo$@ $<
 
 # Selective linking (DESIGN.md, section 5): each program is linked again in
 # build/tests/plus against a copy of LIBC16.LIB with an extra member that
@@ -83,6 +88,8 @@ $(foreach d,$(TEST)/startup $(PLUS),$(d)/args.EXE $(d)/memory.EXE $(d)/memstk.EX
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memstk.EXE): LDOPTS := option stack=6144
 $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP)): $(TEST)/startup/%.EXE: $(TEST)/startup/%.obj
 $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
+# nullstr is linked first, then codepad, which ends the code at a paragraph.
+$(foreach d,$(TEST)/startup $(PLUS),$(d)/nullstr.EXE): $(TEST)/startup/codepad.obj
 
 $(SUITE_EXES): $(TEST)/%.EXE: $(TEST)/%.obj $(TEST)/support/testio.obj
 
@@ -111,6 +118,7 @@ test: $(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES)
 	tests/check-selective $(TEST)/startup $(PLUS)
 	tests/run-dos $(TEST)/startup tests/startup/cases
 	tests/startup/check-memory $(TEST)/startup
+	tests/startup/check-null $(TEST_EXES:.EXE=.MAP) $(SUITE_EXES:.EXE=.MAP)
 	set -e; for s in $(filter-out startup,$(SUITES)); do \
 	  if [ -e tests/$$s/members ]; then tests/check-members $(TEST)/$$s tests/$$s/members; fi; \
 	  tests/run-dos $(TEST)/$$s tests/$$s/cases; \

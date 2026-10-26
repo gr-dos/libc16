@@ -113,7 +113,7 @@ No DOS 2.0 system is available to run the tests on: Microsoft's MIT release of M
 
 ## Segments
 
-The startup declares `dosseg` ordering. `DGROUP` holds `CONST`, `CONST2`, `_DATA`, the init table, `_BSS`, `STACK` and the empty `LIBC16_STACK_END`, in that order. wlink defines `_edata` (start of BSS) and `_end` (end of BSS); the startup's `___libc16_stack_top` labels the top of the stack, where the heap starts (*tested*).
+The startup declares `dosseg` ordering. `DGROUP` holds the startup's 2-byte `LIBC16_NULL`, `CONST`, `CONST2`, `_DATA`, the init table, `_BSS`, `STACK` and the empty `LIBC16_STACK_END`, in that order. `LIBC16_NULL` has class `BEGDATA`, which `dosseg` puts first in `DGROUP` even when the linker sees the program's own objects, and their `DATA` segments, before the startup; so no object of the program is at offset 0, where a pointer to it would be a null pointer (*tested*: `tests/startup/check-null` on every test program's map, and `tests/startup/nullstr.c`, whose code ends at a paragraph). Without it, a program whose code ended at a paragraph had its first `CONST` object, or its first `_BSS` object if it had no constant data, at offset 0. wlink defines `_edata` (start of BSS) and `_end` (end of BSS); the startup's `___libc16_stack_top` labels the top of the stack, where the heap starts (*tested*).
 
 ## Known issues
 

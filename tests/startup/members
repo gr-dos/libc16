@@ -8,4 +8,5 @@ bss:    cstart
 memory: cstart
 memstk: cstart
 stktop: cstart
+nullstr: cstart
 args:   argv args cstart
