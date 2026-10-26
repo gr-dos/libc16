@@ -1,0 +1,6 @@
+# Arithmetic helper tests (tests/run-dos): NAME STATUS PROGRAM [ARGUMENTS]
+
+arith   0  arith
+regs    0  regs
+lmul    0  lmul
+lldiv   0  lldiv

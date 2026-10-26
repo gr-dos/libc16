@@ -57,7 +57,8 @@ check('main(argc, argv) references __argc and _cstart_',
   join(' ', sort(externs($dis{mainargs}))) eq '__argc _cstart_');
 check('__cdecl callback compiles', defined $dis{callback});
 check('default-convention callback does not compile', !compile('badcb'));
-check('arithmetic helpers', join(' ', sort(externs($dis{arith}))) eq '__I4M __I8DQ __I8M __U4D');
+check('arithmetic helpers', join(' ', sort(externs($dis{arith}))) eq
+  '__I4D __I4M __I8DQ __I8DR __I8LS __I8M __I8RS __U4D __U4M __U8DQ __U8DR __U8LS __U8M __U8RS');
 
 exit $failed;
 

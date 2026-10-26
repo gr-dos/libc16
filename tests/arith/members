@@ -1,0 +1,8 @@
+# The libc16 members each arithmetic test program links
+# (tests/check-members). Helpers whose results are the same for signed
+# and unsigned operands share a member; the 64-bit divides share u8div.
+
+arith: cstart i4m i4d u4d i8m i8d u8d u8div i8ls i8rs u8rs
+regs:  cstart i4m i4d u4d i8m i8d u8d u8div i8ls i8rs u8rs
+lmul:  cstart i4m
+lldiv: cstart i8d u8div

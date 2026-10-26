@@ -54,16 +54,30 @@ Global variables are `_name` whether or not they are declared `__cdecl` (*tested
 
 ### Compiler support routines
 
-Calls the compiler emits for operations it does not inline use Open Watcom's own symbols and register conventions. They are private to libc16 and implemented as consumers need them. Observed so far (*tested*):
+Calls the compiler emits for operations it does not inline use Open Watcom's own symbols and register conventions (`docs/spec/arith.md`). They are private to libc16. The symbols are *tested* (`tests/check-abi`), and so is each register contract (`tests/arith`: results, and `regs`, which calls each helper with marker values in the preserved registers).
 
-| Operation | Symbol |
-|---|---|
-| 32-bit signed multiply | `__I4M` |
-| 32-bit unsigned divide | `__U4D` |
-| 64-bit multiply | `__I8M` |
-| 64-bit signed divide | `__I8DQ` |
+All are near calls (`call near ptr`). In the table, `a` is the left operand and `b` the right; a 32-bit pair `DX:AX` has the high word first, and a 64-bit quadruple `AX:BX:CX:DX` has `AX` as bits 63–48 and `DX` as bits 15–0. `[SI]` is an 8-byte operand at `DS:SI`, low word first, which the helper must leave unchanged.
 
-Their exact register contracts are worked out, by experiment, when each is implemented (decision 6).
+| Symbol | Operation | In | Out | Changes |
+|---|---|---|---|---|
+| `__I4M`, `__U4M` | `long`, `unsigned long` `*` | `a` = `DX:AX`, `b` = `CX:BX` | `DX:AX` | `AX`, `BX`, `CX`, `DX` |
+| `__I4D`, `__U4D` | `long`, `unsigned long` `/` and `%` | `a` = `DX:AX`, `b` = `CX:BX` | quotient `DX:AX`, remainder `CX:BX` | `AX`, `BX`, `CX`, `DX` |
+| `__I8M`, `__U8M` | `long long`, `unsigned long long` `*` | `a` = `AX:BX:CX:DX`, `b` = `[SI]` | `AX:BX:CX:DX` | `AX`, `BX`, `CX`, `DX` |
+| `__I8DQ`, `__U8DQ` | `long long`, `unsigned long long` `/` | `a` = `AX:BX:CX:DX`, `b` = `[SI]` | `AX:BX:CX:DX` | `AX`, `BX`, `CX`, `DX` |
+| `__I8DR`, `__U8DR` | `long long`, `unsigned long long` `%` | `a` = `AX:BX:CX:DX`, `b` = `[SI]` | `AX:BX:CX:DX` | `AX`, `BX`, `CX`, `DX` |
+| `__I8LS`, `__U8LS` | `long long`, `unsigned long long` `<<` | `a` = `AX:BX:CX:DX`, `n` = `SI` | `AX:BX:CX:DX` | `AX`, `BX`, `CX`, `DX` |
+| `__I8RS`, `__U8RS` | `long long` `>>` (arithmetic), `unsigned long long` `>>` (logical) | `a` = `AX:BX:CX:DX`, `n` = `SI` | `AX:BX:CX:DX` | `AX`, `BX`, `CX`, `DX` |
+
+Every helper preserves `SI`, `DI`, `BP`, `DS`, `ES` and `SS`, and leaves the direction flag as it found it. Other flags are not preserved. A shift count is the low word of the right operand whatever its type (`int`, `long`, `long long`), and the compiler calls the shift helpers for constant counts too.
+
+The experiments (`wcc` with the consumer flags above, then `wdis -a` of our own objects; also `-od` and `-ox`, which call the helpers the same way):
+
+- **Arguments and results.** `long f(long a, long b) { return a * b; }` compiles to `jmp __I4M`, and likewise for `/` with `__I4D`/`__U4D`: the default convention already has `a` in `DX:AX` and `b` in `CX:BX`, and the result in `DX:AX`. `a % b` is `call __I4D` (or `__U4D`) then `mov ax,bx` / `mov dx,cx`, so the remainder is in `CX:BX`; one helper gives both. For `long long`, `f(a, b)` loads `a` into `AX:BX:CX:DX` (storing `a` through a far pointer shows `AX` is the high word), points `SI` at `b` (`lea si,6[bp]` for a parameter, `mov si,offset _gb` for a global, `mov si,offset L$4` for a constant in `CONST`), calls, and reads the result from `AX:BX:CX:DX`. A shift loads the count into `SI` (`mov si,6[bp]`; `mov si,5` for `a << 5`); for a `long` or `long long` count, only its low word.
+- **Registers kept live.** With a far pointer parameter, `p[0] = a; p[1] = a * b; p[2] = b;` keeps `ES:SI` (32-bit) or `ES:DI` (64-bit) live across the call. Loops over arrays (`s += *a++ * *b++`) keep their pointers in `SI` and `DI` across `__I4M` and `__U4D`, and in `DI` across `__I8M` and `__I8RS`. So `SI`, `DI` and `ES` are preserved for the 32-bit helpers, and `DI` and `ES` for the 64-bit ones.
+- **Registers not kept.** `a * b + b * c` copies `b` from `CX:BX` to `SI:DI` before `__I4M` rather than reuse `CX:BX`, and a loop reloads the divisor into `CX:BX` before each `__U4D`, so `BX` and `CX` are not relied on after the 32-bit helpers. The 64-bit callers reload `SI` before every call (`a * gb * gb` sets `mov si,offset _gb` twice) and never read it after; `SI` is preserved anyway, since no experiment shows it may change.
+- **The 8-byte operand.** After `p[1] = a * b;`, `p[2] = b;` copies `b` from the same stack slot `SI` pointed at, so the helper must not write `[SI]`.
+
+The implementations (`crt/i4m.asm`, `u4d.asm`, `i4d.asm`, `i8m.asm`, `u8d.asm`, `i8d.asm`, `u8div.asm`, `i8ls.asm`, `i8rs.asm`, `u8rs.asm`) give C's result for every defined operand. For undefined ones: a zero divisor raises the divide-error trap (INT 0) in `__I4D` and `__U4D`, and gives a quotient of all ones and the dividend as remainder in the 64-bit divides; `LONG_MIN / -1` and `LLONG_MIN / -1` give the dividend; out-of-range shift counts shift by that many bits one at a time (a count of 64 or more gives 0, or all sign bits).
 
 ## Startup
 
