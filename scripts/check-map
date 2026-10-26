@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+
+=head1 NAME
+
+check-map - check that a program links only its objects and LIBC16.LIB
+
+=head1 SYNOPSIS
+
+  scripts/check-map MAP LIBRARY OBJECT...
+
+=head1 DESCRIPTION
+
+Reads the wlink map MAP and checks that every module in it comes from one
+of the OBJECTs or from LIBRARY (DESIGN.md, section 5): a module from any other file,
+such as an Open Watcom runtime library, is an error. Prints the names of
+the LIBRARY members that were linked (their source file names without
+directory or extension), one per line in link order, and
+exits 1 on an error.
+
+=cut
+
+my ($map, $library, @objects) = @ARGV;
+die "usage: $0 MAP LIBRARY OBJECT...\n" unless defined $library;
+
+my %object = map { $_ => 1 } @objects;
+my $bad    = 0;
+my @members;
+
+open my $fh, '<', $map;
+while (my $line = <$fh>) {
+  next unless $line =~ /^Module: (.*)\((.*)\)\s*$/;
+  my ($file, $module) = ($1, $2);
+  if ($file eq $library) {
+    # The module name is the member's source path, which wcc makes
+    # absolute; report just its base name.
+    push @members, $module =~ s{^.*/}{}r =~ s{\.[^.]*$}{}r;
+  } elsif (!$object{$file}) {
+    say STDERR "$map: module $module from $file, not $library or an object";
+    $bad = 1;
+  }
+}
+close $fh;
+
+say for @members;
+exit $bad;

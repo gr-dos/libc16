@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+
+=head1 NAME
+
+check-members - check which libc16 members each test program links
+
+=head1 SYNOPSIS
+
+  tests/check-members DIR MEMBERS
+
+=head1 DESCRIPTION
+
+Each line of MEMBERS is C<NAME: MEMBER...>. Checks that DIR/NAME.MEMBERS,
+written by scripts/check-map, names exactly those members, in any order,
+so that a program links nothing it does not use (DESIGN.md, section 5).
+Prints one line per program and exits 1 if any differs.
+
+=cut
+
+my ($dir, $spec) = @ARGV;
+die "usage: $0 DIR MEMBERS\n" unless defined $spec;
+
+my $failed = 0;
+open my $fh, '<', $spec;
+while (my $line = <$fh>) {
+  next if $line =~ /^\s*(?:#|$)/;
+  my ($name, $want) = $line =~ /^(\S+):\s*(.*?)\s*$/ or die "$spec:$.: bad line\n";
+  open my $got_fh, '<', "$dir/$name.MEMBERS";
+  my $got = join ' ', sort map { chomp; $_ } <$got_fh>;
+  close $got_fh;
+  $want = join ' ', sort split ' ', $want;
+  if ($got eq $want) {
+    say "ok $name members";
+  } else {
+    say "not ok $name members: $got, expected $want";
+    $failed = 1;
+  }
+}
+close $fh;
+exit $failed;

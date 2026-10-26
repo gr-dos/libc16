@@ -1,0 +1,15 @@
+# Startup tests (tests/run-dos): NAME STATUS PROGRAM [ARGUMENTS]
+
+status  42 status
+dirty   0  dirty
+bss     0  bss
+memory  0  memory
+memstk  0  memstk
+
+# argc/argv, split as Microsoft C does (crt/args.c)
+argnone 0  args
+argsp   0  args 
+argws   0  args  one	two   three  
+argquot 0  args "a b" c" "d "" e
+argbs   0  args a\b c\\"d e" \"f\\\"g h\\
+argmax  0  args 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
