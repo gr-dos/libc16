@@ -1,7 +1,7 @@
 # libc16 — Design and MVP Plan
 
 **Project:** `gr-dos/libc16`  
-**Status:** Proposed design  
+**Status:** Accepted design; see §15 for decisions  
 **Target:** 16-bit real-mode DOS on Intel 8086/8088-compatible CPUs  
 **License goal:** MIT, with independently implemented and auditable source
 
@@ -22,7 +22,7 @@ That includes unused file I/O, argument processing, formatting, allocation, arit
 ### Goals
 
 - Produce usable, compact `.EXE` programs for original 8086/8088 systems, using a Linux-hosted build workflow.
-- Start with **Open Watcom 16-bit C**, **small memory model**, and **Microsoft-compatible `__cdecl`** linkage.
+- Start with **Open Watcom 16-bit C**, **small memory model**, and **Microsoft-compatible `__cdecl`** linkage for library interfaces (decision 2).
 - Supply independently authored, permissively licensed implementations of the runtime facilities required by participating tools.
 - Enforce explicit linking with `libc16`, with **no fallback** to Open Watcom's runtime.
 - Keep archive modules sufficiently granular that adding an unused function never grows other executables.
@@ -45,7 +45,7 @@ That includes unused file I/O, argument processing, formatting, allocation, arit
 - Source repository: **`gr-dos/libc16`**.
 - Primary static archive: **`LIBC16.LIB`**, compatible with the selected Open Watcom linker/librarian tooling.
 - Repository naming: the `gr-dos` organization eliminates the old `dos-` repository prefix (for example, `gr-dos/df16`, not `gr-dos/dos-df16`).
-- Build tools initially: Open Watcom (`wcc`, `wlink`, `wlib`), JWasm or another suitably licensed 8086-capable assembler, GNU Make, and Linux-hosted testing/emulators.
+- Build tools initially: Open Watcom (`wcc`, `wlink`, `wlib`), JWasm (decision 4), GNU Make, and Linux-hosted testing/emulators.
 - Distribution: versioned releases with binaries, headers, checksums, license/provenance documentation, and reproducible source/build instructions.
 
 Illustrative structure (not a commitment to file-level layout):
@@ -84,7 +84,7 @@ libc16/
 
 - Intel **8086 instruction set only**, including archive members, startup code, and any compiler support helpers.
 - DOS real-mode `.EXE`, small code/data model with near pointers where applicable.
-- Open Watcom generating code with **Microsoft-compatible `__cdecl`** for published library interfaces; document symbol decoration, stack argument placement, return values, register preservation, segment register behavior, struct packing and pointer representation.
+- Open Watcom generating code with **Microsoft-compatible `__cdecl`** for published library interfaces, while consumers keep Open Watcom's default register convention (decision 2); document symbol decoration, stack argument placement, return values, register preservation, segment register behavior, struct packing and pointer representation.
 - Prefer a public header that explicitly declares ABI details; validate using small compiled/disassembled call-site fixtures rather than relying on assumptions.
 - Preserve names expected by Open Watcom for **compiler-generated helper symbols**, even where they are not exposed as public APIs.
 - Implement DOS-specific `int86`, `intdos`, `segread`, related structures, and interrupt conventions to match established Microsoft C/DOS conventions when feasible. Document differences explicitly and test segment-register and carry-flag behavior.
@@ -135,7 +135,7 @@ Prefer optional, individually linked modules for:
 - heap setup;
 - buffered I/O and other initialization requiring extra state.
 
-**Investigate automatic modular selection first**, using what the compiler actually references. If reliable detection is impractical, explicit minimal/standard startup variants are acceptable and preferable to a complex fragile system. The design must not silently pass unusable `argc`/`argv` to applications that expect them. Declare the startup selection and application-entry contract precisely, including how `main(void)` and `main(int,char **)` are supported.
+Startup features are chosen by **explicit startup variants** (decision 8), not detected automatically: `main(void)` and `main(int, char **)` compile to the same symbol, so the compiler's references cannot tell them apart. The design must not silently pass unusable `argc`/`argv` to applications that expect them. Declare the startup selection and application-entry contract precisely, including how `main(void)` and `main(int,char **)` are supported.
 
 The core startup targets **DOS 2.0**. Individual routines requiring newer DOS services must specify their own minimum versions without raising that of unaffected applications.
 
@@ -291,7 +291,6 @@ MIT is the intended license of independently authored `libc16` source. **Licensi
 
 These need implementation evidence, not further top-level policy debate:
 
-- Whether Open Watcom offers reliable automatic selection of startup subfeatures or warrants explicit startup variants.
 - Precise compiler/linker flags and calling convention/segment rules for each public DOS extension.
 - The smallest conforming I/O API required by the first migrated utility, especially how to avoid unnecessarily dragging in general `stdio`.
 - Which arithmetic helper symbols are emitted by each participating consumer and how to isolate them.
@@ -299,3 +298,16 @@ These need implementation evidence, not further top-level policy debate:
 - Version/ABI compatibility policy after the first stable release and how downstream consumers pin updates.
 
 These questions may change implementation details, but not the agreed platform, modularity, licensing, consumer ordering, or testability principles.
+
+## 15. Decisions
+
+1. **Open Watcom version.** Pin open-watcom-v2 release `2026-10-01-Build`, asset `ow-snapshot.tar.xz` (`sha256:e6aa1b1e40ac8bbf97658d2c70fff8a4242d6ca4a1c60806f2baa5317083d4fe`), the same pin as GR-DOS (its decision 10). Change it only together with GR-DOS.
+2. **Calling convention.** Consumers compile with Open Watcom's default register convention. Every public libc16 function is declared `__cdecl` in its header: Microsoft-style `_name` symbols, stack arguments, caller pops. Callback parameters (`qsort`, `bsearch`, `atexit`) take `__cdecl` function-pointer types, so a mismatched callback fails to compile. Startup calls the application as `main_` under the register convention. Compiler support routines keep the conventions Open Watcom mandates for them. GR-DOS drops `-ecc` when it moves to libc16 (M3).
+3. **Standard scope.** Implement only what consumers need, and give each standard function it provides its full standard contract. 64-bit integer support is required (`df16`). For simple formatting, use `libc16_` helpers instead of `printf`/`snprintf`.
+4. **Assembler.** JWasm v2.20, built by the same fetch script and patches as GR-DOS (its decision 19), run without `-Zj`. JWasm is under the Sybase Open Watcom Public License, acceptable for a build tool. Every source declares `.8086`. Use assembly only where C cannot do the job: startup, interrupt interfaces and compiler support routines.
+5. **8086 verification.** Both a static opcode scanner over every archive member and linked executable, and execution under an emulator that models an 8086/8088. The emulator, and which runs happen in CI rather than as a documented manual step, are settled in M1.
+6. **Provenance.** Each module gets a short behavioral spec before it is implemented, citing its sources: the C standard, DOS interrupt documentation, the Microsoft C 5.1 interfaces, Open Watcom *documentation* and our own call-site experiments. Compiler support symbols and conventions are found by compiling our C and disassembling our own objects. No one working on libc16 reads Open Watcom runtime source or disassembles its libraries. `docs/LICENSE-PROVENANCE.md` records each module's authors (including AI assistance, also recorded in commit trailers), sources, spec and tests. Startup, arithmetic and 64-bit helpers, the heap and any formatting code are implemented by a separate session from the spec alone. Before the first release, an automated similarity audit compares our objects with Open Watcom's runtime library and reports only scores. The GR-DOS `compat/crt` runtime is replaced, not reused, and the conflict between §12 and GR-DOS's `docs/provenance.md` (decision 20 there) about how it was written is resolved in M3.
+7. **CI and discovery.** GitHub Actions. Discovery uses the GitHub API through `gh` and proposes manifest changes as pull requests.
+8. **Startup selection.** Explicit startup variants: a consumer links the variant that matches its `main` (with or without `argc`/`argv`).
+9. **Text mode.** `open` defaults to `O_TEXT` with CR/LF translation, following Microsoft C. Ctrl-Z handling is specified with the first consumer that reads text.
+10. **Delivery.** M1 to M3 are delivered as small, focused commits.
