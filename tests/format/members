@@ -1,0 +1,5 @@
+# The libc16 members each formatting test program links
+# (tests/check-members): each helper alone, with no 32-bit divide.
+
+ultoa: cstart ultoa
+ltoa:  cstart ltoa

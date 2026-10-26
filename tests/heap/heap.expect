@@ -1,0 +1,14 @@
+the stack is all below the heap ok
+allocations are placed ok
+allocations keep their contents ok
+free and reuse ok
+free neighbours merge ok
+malloc(0) is unique ok
+exhaustion returns NULL with ENOMEM ok
+exhausted heap keeps contents ok
+malloc(65535) fails with ENOMEM ok
+malloc(65533) fails with ENOMEM ok
+recovery after free ok
+one block of the total after freeing all ok
+allocations are placed ok
+allocations keep their contents ok

@@ -22,3 +22,22 @@ Every program also references `_cstart_`, `__argc` (all of them take `argc`/`arg
 - **Streams.** Every consumer writes to `stdout`/`stderr` through `FILE`; `crcsum16` and `md5sum16` also read files through `fopen`/`fgetc`.
 - **errno.** Open Watcom's headers reach `errno` through `__get_errno_ptr`; libc16's headers define their own.
 - **64-bit.** Only `df16` needs 64-bit helpers so far (`__U8M`, `__U8DQ`, `__U8DR`).
+
+## Migration status
+
+Each small-model consumer has a PR that links it with libc16 instead of Open Watcom's runtime, pinned to libc16 `8cde3bd` (`scripts/fetch-libc16`). Sizes are the `.EXE` before and after; the C sources change only where libc16 leaves out a function (`printf`, `fprintf`, `sprintf`).
+
+| Repository | PR | `.EXE` bytes, Open Watcom → libc16 | Assembly `.COM` |
+|---|---|---|---|
+| `gr-dos/hello16` | [#4](https://github.com/gr-dos/hello16/pull/4) | 9,532 → 1,386 | 547 bytes, updated to follow libc16 |
+| `gr-dos/truncate16` | [#4](https://github.com/gr-dos/truncate16/pull/4) | 16,184 → 5,686 | 3,294 bytes, updated |
+| `gr-dos/crcsum16` | [#5](https://github.com/gr-dos/crcsum16/pull/5) | 17,042 → 5,946 | 3,417 bytes, updated |
+| `gr-dos/df16` | [#5](https://github.com/gr-dos/df16/pull/5) | 14,938 → 4,680 | none |
+| `gr-dos/md5sum16` | [#2](https://github.com/gr-dos/md5sum16/pull/2) | 25,610 → 14,300 | none |
+| `gr-dos/which16` | [#8](https://github.com/gr-dos/which16/pull/8) | 13,220 → 4,252 | 2,530 bytes, updated |
+| `gr-dos/tar16` | — | | pending: large model |
+| `tico-edit/tico16` | — | | pending: compact model |
+
+Where a consumer has an assembly version that its tests compare byte for byte with the C program, the assembly had copied Open Watcom's runtime behaviour. It now follows libc16's specs instead: Microsoft's argument splitting, libc16's `errno` mapping and messages, unbuffered streams, `_fullpath` and `getenv` limits.
+
+crcsum16 found the `DGROUP:0` bug fixed in `77b402e`: its first string was at offset 0 and so compared equal to `NULL`.

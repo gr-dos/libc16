@@ -1,0 +1,3 @@
+# Each test program links only the members it calls.
+
+io: cstart access chsize close doserr errno fdtab filelen lseek memcmp memset open read setmode write

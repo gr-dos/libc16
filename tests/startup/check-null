@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+
+=head1 NAME
+
+check-null - check that no object is at offset 0 of DGROUP
+
+=head1 SYNOPSIS
+
+  tests/startup/check-null MAP...
+
+=head1 DESCRIPTION
+
+Reads each wlink map and checks that the first segment of DGROUP is the
+startup's C<LIBC16_NULL>, at least 2 bytes long, and that every other
+DGROUP segment with any bytes starts at DGROUP offset 2 or later, so that
+no object of the program is at offset 0, where a pointer to it would be a
+null pointer (docs/spec/startup.md, "Null pointer"). Offsets are from
+DGROUP's frame, the segment of its address in the map. Prints one line per
+map and exits 1 if any fails.
+
+=cut
+
+die "usage: $0 MAP...\n" unless @ARGV;
+
+my $failed = 0;
+for my $map (@ARGV) {
+  my ($frame, @segments);
+  open my $fh, '<', $map;
+  while (my $line = <$fh>) {
+    if ($line =~ /^DGROUP\s+([0-9a-f]{4}):[0-9a-f]{4}\s+[0-9a-f]{8}\s*$/) {
+      $frame = hex $1;
+    } elsif ($line =~ /^(\w+)\s+\w+\s+DGROUP\s+([0-9a-f]{4}):([0-9a-f]{4})\s+([0-9a-f]{8})\s*$/) {
+      push @segments, { name => $1, linear => hex($2) * 16 + hex($3), size => hex $4 };
+    }
+  }
+  close $fh;
+  die "$map: no DGROUP\n" unless defined $frame && @segments;
+
+  my @bad;
+  my $first = $segments[0];
+  push @bad, "first segment $first->{name}" unless $first->{name} eq 'LIBC16_NULL';
+  push @bad, "$first->{name} size $first->{size}" if $first->{size} < 2;
+  for my $segment (@segments[1 .. $#segments]) {
+    my $offset = $segment->{linear} - $frame * 16;
+    push @bad, sprintf '%s at offset %d', $segment->{name}, $offset if $segment->{size} && $offset < 2;
+  }
+  if (@bad) {
+    say "not ok $map: ", join ', ', @bad;
+    $failed = 1;
+  } else {
+    say "ok $map DGROUP:0 reserved";
+  }
+}
+exit $failed;

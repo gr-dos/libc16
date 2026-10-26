@@ -1,0 +1,4 @@
+# Each test program links only the members it calls.
+
+stdio:   cstart close doserr errno fclose fdtab fflush fgetc fgets fopen fputc fputs getc open putc putchar read setmode stderr stdout strcmp strcpy strlen ungetc write
+stdinrd: cstart doserr errno fdtab fgetc fgets fputs read stdin stdout strlen write

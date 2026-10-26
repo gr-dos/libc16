@@ -1,0 +1,3 @@
+# Each test program links only the members it calls.
+
+dos: cstart dosfind doserr errno findfrst findnext fullpath getenv int86 memcpy memset strcmp

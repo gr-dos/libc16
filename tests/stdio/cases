@@ -1,0 +1,4 @@
+# stdio streams (docs/spec/stdio.md)
+
+stdio 0 stdio
+stdin 0 stdinrd <INPUT.TXT
