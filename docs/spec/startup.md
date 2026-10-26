@@ -32,6 +32,8 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 6. Call `main_` with `AX` = `__libc16_argc` and `DX` = `__libc16_argv` (both 0 unless an init routine set them).
 7. Terminate with INT 21h function 4Ch with `AL` = the low byte of `main`'s return value.
 
+**Null pointer:** no object of the program may be at offset 0 of `DGROUP`, because a pointer to it would be a null pointer (C99 6.3.2.3). The startup reserves the start of `DGROUP`, before `CONST`, with at least 2 bytes that hold no C object, whatever the size of the code and the order of the other modules.
+
 **Segments:** declares `dosseg` ordering; `DGROUP` groups `CONST`, `CONST2`, `_DATA` (class `DATA`), `LIBC16_INIT_BEGIN`, `LIBC16_INIT`, `LIBC16_INIT_END` (class `DATA`, in that order), `_BSS` (class `BSS`), `STACK` (class `STACK`, combine type stack, default 2048 bytes) and `LIBC16_STACK_END` (class `STACK`, byte aligned, empty).
 
 **Top of the stack:** `__libc16_stack_top` (C name, declared `extern char __cdecl __libc16_stack_top[]`; symbol `___libc16_stack_top`) is a label with no storage at the start of `LIBC16_STACK_END`, so its offset in `DGROUP` is the top of the stack for any `option stack=n`: the address step 2 sets `SP` to, and where the program's memory block ends, rounded up to a paragraph (step 3). The heap starts there (`docs/spec/heap.md`). It adds no bytes to a program, so programs that do not use it are unchanged. `tests/startup/check-memory` checks it against the end of `DGROUP` in the map.
