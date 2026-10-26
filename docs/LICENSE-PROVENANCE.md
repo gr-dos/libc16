@@ -22,15 +22,19 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 
 | Member | Source | Spec | Authors | Status |
 |---|---|---|---|---|
-| `cstart` | `crt/cstart.asm` | `docs/spec/startup.md` | Claude (Opus 5.5); human review pending | **Not yet compliant**, see below |
-| `argv` | `crt/argv.asm` | `docs/spec/startup.md` | Claude (Opus 5.5); human review pending | **Not yet compliant** |
-| `args` | `crt/args.c` | `docs/spec/startup.md` | Claude (Opus 5.5); human review pending | **Not yet compliant** |
+| `cstart` | `crt/cstart.asm` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `argv` | `crt/argv.asm` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `args` | `crt/args.c` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 
-### Startup: deviation from decision 6
+### Startup
 
-The startup members were written in the same session that settled their design, before their spec existed, which the policy does not allow for startup code. They were written from DOS documentation, the Microsoft C argument-parsing rules and our own experiments; no Open Watcom runtime source or disassembly was consulted. The init table's segments were first named `XIB`/`XI`/`XIE`, names other runtimes use, and were renamed to `LIBC16_INIT_*` (commit `717a884`).
+The startup members were written by a separate session that was given a copy of the repository without `crt/` or its history, and told to work from `docs/spec/startup.md`, `docs/ABI.md`, the tests and public documentation only, and not to read Open Watcom runtime source or disassemble its libraries. Its sources:
 
-**To resolve:** a separate session reimplements the three members from `docs/spec/startup.md` alone, without seeing `crt/`, and its implementation replaces these once it passes `make test`.
+- **`cstart`:** the spec; `docs/ABI.md`; Ralf Brown's Interrupt List for the `.EXE` load state and INT 21h functions 4Ah and 4Ch; the 8088's unreliable interrupt hold-off after a move to `SS`; its own experiments, disassembling its own wcc output for segment names, classes and alignments and for `main_`'s registers, and reading wlink maps for `_edata`/`_end`.
+- **`argv`:** the spec, `docs/ABI.md` and DESIGN.md decision 8.
+- **`args`:** the spec and `tests/startup/*.expect`; the PSP layout in Ralf Brown's Interrupt List (INT 21h function 26h); Microsoft's documentation of how Microsoft C parses command-line arguments; C99 5.1.2.2.1; Open Watcom documentation of `:>` and `__segment`.
+
+They replace a first version written in the same session that designed the startup, before the spec existed, which decision 6 does not allow for startup code (commits `68b5f10` to `717a884`). That version was not consulted.
 
 ## GR-DOS `compat/crt`
 

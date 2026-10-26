@@ -1,84 +1,88 @@
-/* argc/argv from the command tail in the PSP (decision 8), linked through
- * argv.asm only when main takes parameters.
+/* libc16 command-tail parser: builds argc and argv for main.
  *
- * The tail is split as Microsoft C does:
- *   - arguments are separated by spaces and tabs;
- *   - double quotes are removed and toggle quoting, inside which spaces
- *     and tabs are part of the argument;
- *   - 2n backslashes before a double quote give n backslashes and the
- *     quote toggles quoting; 2n + 1 give n backslashes and a literal
- *     double quote; other backslashes are literal.
- *
- * argv[0] is "" (the C standard's value when the program name is not
- * available) and argv[argc] is a null pointer. The strings are copies in
- * DGROUP and may be modified. */
+ * Written from docs/spec/startup.md ("Command-tail parser"), the PSP format
+ * table in Ralf Brown's Interrupt List (under INT 21h function 26h:
+ * command-tail length at offset 80h, text from 81h, ended by a carriage
+ * return), Microsoft's documentation of how Microsoft C parses command-line
+ * arguments, and C99 5.1.2.2.1. Runs from the init table (crt/argv.asm). */
 
 #include "startup.h"
 
-#define TAIL_MAX 127
+#define TAIL_MAX 127            /* bytes in a command tail */
+#define ARGS_MAX 64             /* most arguments TAIL_MAX bytes can split into */
 
-/* line[0] is argv[0]; the tail is copied to line[1] onward and split in
- * place, which never writes past the input read so far plus one NUL. */
-static char line[1 + TAIL_MAX + 1];
+/* text[0] is argv[0]'s empty string; the tail is copied after it and split
+ * in place. Splitting never writes ahead of where it reads (each output
+ * byte, and each terminator but the last, consumes at least one input
+ * byte), so one byte past the tail is enough for the last terminator. */
+static char text[1 + TAIL_MAX + 1];
 
-/* At most (TAIL_MAX + 1) / 2 arguments, after argv[0] and before NULL. */
-static char *args[1 + (TAIL_MAX + 1) / 2 + 1];
+/* argv[0], the arguments and the null pointer after them. */
+static char *vec[1 + ARGS_MAX + 1];
 
 void __libc16_args(void)
 {
-    unsigned char __far *tail = ((__segment)_psp) :> ((unsigned char __near *)0x80);
-    unsigned n = tail[0];
-    unsigned i, o, slashes;
-    int argc = 1;
-    int quoted = 0;
+    const char __far *tail = ((__segment)_psp) :> ((const char __near *)0x80);
+    unsigned n;
+    unsigned slashes;
+    char *src;
+    char *dst;
+    char *lim;
     char c;
+    int argc;
+    int quoted;
 
+    /* Copy the tail, which ends at its length or at a carriage return. */
+    n = (unsigned char)*tail;
     if (n > TAIL_MAX)
         n = TAIL_MAX;
-    for (i = 1; i <= n && tail[i] != '\r'; i++)
-        line[i] = tail[i];
-    n = i - 1;
+    lim = text + 1;
+    while (n-- != 0 && (c = *++tail) != '\r')
+        *lim++ = c;
 
-    args[0] = line;
-    i = o = 1;
+    /* BSS is zero, so text[0] already ends argv[0] and every vec entry
+     * past the last argument is already a null pointer. */
+    vec[0] = text;
+    argc = 1;
+    src = text + 1;
     for (;;) {
-        while (i <= n && (line[i] == ' ' || line[i] == '\t'))
-            i++;
-        if (i > n)
+        while (src < lim && (*src == ' ' || *src == '\t'))
+            src++;
+        if (src == lim)
             break;
-        args[argc++] = &line[o];
-        slashes = 0;
-        while (i <= n) {
-            c = line[i];
-            if (c == '\\') {
+        vec[argc++] = dst = src;
+        quoted = 0;
+        for (;;) {
+            slashes = 0;
+            while (src < lim && *src == '\\') {
+                src++;
                 slashes++;
-                i++;
-                continue;
             }
-            if (c == '"') {
+            if (src < lim && *src == '"') {
+                /* 2n backslashes and a quote: n backslashes, and the
+                 * quote toggles quoting; 2n + 1: n backslashes and a
+                 * literal quote. */
+                src++;
                 for (; slashes >= 2; slashes -= 2)
-                    line[o++] = '\\';
-                if (slashes) {
-                    line[o++] = '"';
-                    slashes = 0;
-                } else {
+                    *dst++ = '\\';
+                if (slashes != 0)
+                    *dst++ = '"';
+                else
                     quoted = !quoted;
-                }
-                i++;
                 continue;
             }
-            for (; slashes; slashes--)
-                line[o++] = '\\';
-            if (!quoted && (c == ' ' || c == '\t'))
+            /* Backslashes not followed by a quote are literal. */
+            for (; slashes != 0; slashes--)
+                *dst++ = '\\';
+            if (src == lim)
                 break;
-            line[o++] = c;
-            i++;
+            c = *src++;
+            if (!quoted && (c == ' ' || c == '\t'))
+                break;          /* the separator is consumed, so dst < src */
+            *dst++ = c;
         }
-        for (; slashes; slashes--)
-            line[o++] = '\\';
-        line[o++] = '\0';
+        *dst = '\0';
     }
-
     __libc16_argc = argc;
-    __libc16_argv = args;
+    __libc16_argv = vec;
 }
