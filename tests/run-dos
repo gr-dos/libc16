@@ -1,0 +1,137 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+use File::Basename qw(dirname);
+use File::Spec;
+
+=head1 NAME
+
+run-dos - run test programs under DOSBox-X and check their results
+
+=head1 SYNOPSIS
+
+  tests/run-dos DIR CASES
+
+=head1 DESCRIPTION
+
+Runs the cases in the file CASES with the programs in DIR, which is
+mounted as drive C: of a headless DOSBox-X with an 8086 CPU (decision 5).
+Each line of CASES is
+
+  NAME STATUS PROGRAM [ARGUMENTS]
+
+and runs C<PROGRAM ARGUMENTS E<gt>NAME.OUT> (ARGUMENTS is the rest of the
+line, verbatim), passing if its exit status is STATUS and, when the file
+NAME.expect exists next to CASES, its output matches it. In an expect file
+a line C</REGEX/> matches a line of output by regular expression; any
+other line must equal its line of output. Blank lines and lines starting
+with # are ignored. NAME is a DOS file name without extension, at most 8
+characters. Cases run in order, in one DOSBox-X session.
+
+Prints one line per case and exits 1 if any case fails.
+
+=cut
+
+my ($dir, $cases) = @ARGV;
+die "usage: $0 DIR CASES\n" unless defined $cases;
+my $expect_dir = dirname($cases);
+
+my @cases;
+open my $in, '<', $cases;
+while (my $line = <$in>) {
+  chomp $line;
+  next if $line =~ /^\s*(?:#|$)/;
+  my ($name, $status, $program, $args) = $line =~ /^(\S+)\s+(\d+)\s+(\S+)(?: (.*))?$/
+    or die "$cases:$.: bad case\n";
+  die "$cases:$.: name $name is not a DOS file name\n" unless $name =~ /^[a-z0-9_]{1,8}$/i;
+  push @cases, { name => uc $name, expect => "$expect_dir/$name.expect", status => $status,
+    command => join ' ', grep { defined } $program, $args };
+}
+close $in;
+
+my @batch;
+for my $case (@cases) {
+  my ($name, $status) = $case->@{qw(name status)};
+  my $above = $status + 1;
+  push @batch, "$case->{command} >$name.OUT";
+  push @batch, "if errorlevel $above goto ${name}_f" if $status < 255;
+  push @batch, "if not errorlevel $status goto ${name}_f";
+  push @batch, "echo $name ok>>RESULT.TXT", "goto ${name}_d";
+  push @batch, ":${name}_f", "echo $name FAIL>>RESULT.TXT", ":${name}_d";
+}
+unlink grep { -e } "$dir/RESULT.TXT", map { "$dir/$_->{name}.OUT" } @cases;
+write_file("$dir/RUN.BAT", join '', map { "$_\r\n" } @batch);
+
+my $abs = File::Spec->rel2abs($dir);
+write_file("$dir/DOSBOX.CNF", <<~"END");
+  [sdl]
+  output=surface
+  [dosbox]
+  machine=cga
+  [cpu]
+  core=normal
+  cputype=8086
+  [autoexec]
+  mount c "$abs"
+  c:
+  call RUN.BAT
+  exit
+  END
+
+{
+  local $ENV{SDL_VIDEODRIVER} = 'dummy';
+  local $ENV{SDL_AUDIODRIVER} = 'dummy';
+  system('sh', '-c', 'exec "$@" >"$0" 2>&1', "$abs/DOSBOX.LOG", 'timeout', '-s', 'KILL', '120',
+    'dosbox-x', '-nogui', '-nomenu', '-conf', "$abs/DOSBOX.CNF");
+}
+
+my %result;
+if (-e "$dir/RESULT.TXT") {
+  open my $fh, '<', "$dir/RESULT.TXT";
+  while (<$fh>) {
+    s/\r?\n$//;
+    my ($name, $how) = split ' ';
+    $result{$name} = $how;
+  }
+}
+
+my $failed = 0;
+for my $case (@cases) {
+  my $name = $case->{name};
+  my @why;
+  if (!defined $result{$name}) {
+    push @why, 'did not run';
+  } elsif ($result{$name} ne 'ok') {
+    push @why, "exit status is not $case->{status}";
+  }
+  push @why, compare($case->{expect}, "$dir/$name.OUT") if -e $case->{expect};
+  say @why ? "not ok $name: $case->{command}: " . join('; ', @why) : "ok $name";
+  $failed = 1 if @why;
+}
+exit $failed;
+
+sub compare ($expect, $out) {
+  my @want = read_lines($expect);
+  my @got  = -e $out ? read_lines($out) : ();
+  @want = grep { !/^\s*(?:#|$)/ } @want;
+  for my $i (0 .. $#want) {
+    my $got = $got[$i] // '(none)';
+    my $ok  = $want[$i] =~ m{^/(.*)/$} ? $got =~ /$1/ : $got eq $want[$i];
+    return "output line " . ($i + 1) . " is '$got', expected '$want[$i]'" unless $ok;
+  }
+  return "output has " . @got . " lines, expected " . @want if @got != @want;
+  return;
+}
+
+sub read_lines ($file) {
+  open my $fh, '<', $file;
+  return map { s/\r?\n$//r } <$fh>;
+}
+
+sub write_file ($file, $content) {
+  open my $fh, '>', $file;
+  print $fh $content;
+  close $fh;
+}

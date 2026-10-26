@@ -1,0 +1,91 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+
+=head1 NAME
+
+check-abi - check the calling convention contract of docs/ABI.md
+
+=head1 SYNOPSIS
+
+  tests/check-abi OUTDIR WCC-FLAGS...
+
+=head1 DESCRIPTION
+
+Compiles the call-site fixtures in tests/abi with C<wcc> and WCC-FLAGS, the
+flags a consumer uses, into OUTDIR, disassembles them with C<wdis>, and
+checks what docs/ABI.md states:
+
+=over
+
+=item * a __cdecl function is called as C<_name> with its arguments pushed
+right to left and popped by the caller;
+
+=item * variables are C<_name> with or without __cdecl;
+
+=item * C<main> is C<main_> and references C<_cstart_>, and also C<__argc>
+when it takes parameters;
+
+=item * a default-convention function does not compile as a __cdecl
+callback;
+
+=item * the arithmetic helper symbols are those listed in docs/ABI.md.
+
+=back
+
+Prints one line per check and exits 1 if any fails.
+
+=cut
+
+my ($out, @flags) = @ARGV;
+die "usage: $0 OUTDIR WCC-FLAGS...\n" unless @flags;
+my $dir = 'tests/abi';
+mkdir $out unless -d $out;
+my $failed = 0;
+
+my %dis = map { $_ => disassemble($_) } qw(cdecl data mainvoid mainargs callback arith);
+
+check('cdecl call by _name', $dis{cdecl} =~ /^\t\tEXTRN\t_libfn:/m);
+check('cdecl arguments right to left, caller pops',
+  $dis{cdecl} =~ /^\tpush\t+dx\n\tpush\t+ax\n\tcall\t+near ptr _libfn\n\tadd\t+sp,4\n/m);
+check('variables are _name', $dis{data} =~ /EXTRN\t_cvar:/ && $dis{data} =~ /EXTRN\t_wvar:/);
+check('main(void) is main_', $dis{mainvoid} =~ /PUBLIC\tmain_\n/);
+check('main(void) references _cstart_ only', join(' ', externs($dis{mainvoid})) eq '_cstart_');
+check('main(argc, argv) references __argc and _cstart_',
+  join(' ', sort(externs($dis{mainargs}))) eq '__argc _cstart_');
+check('__cdecl callback compiles', defined $dis{callback});
+check('default-convention callback does not compile', !compile('badcb'));
+check('arithmetic helpers', join(' ', sort(externs($dis{arith}))) eq '__I4M __I8DQ __I8M __U4D');
+
+exit $failed;
+
+sub compile ($name) {
+  my $pid = fork // die;
+  if (!$pid) {
+    open STDOUT, '>', '/dev/null';
+    open STDERR, '>', '/dev/null';
+    exec 'wcc', @flags, "-fo=$out/$name.obj", "-fr=$out/$name.err", "$dir/$name.c";
+  }
+  waitpid $pid, 0;
+  return $? == 0;
+}
+
+sub disassemble ($name) {
+  compile($name) or return;
+  open my $fh, '-|', "$ENV{WATCOM}/binl64/wdis", '-a', "$out/$name.obj";
+  local $/;
+  my $text = <$fh>;
+  close $fh;
+  return $text;
+}
+
+sub externs ($text) {
+  return $text =~ /^\t\tEXTRN\t(\w+):/mg;
+}
+
+sub check ($what, $ok) {
+  say $ok ? "ok $what" : "not ok $what";
+  $failed = 1 unless $ok;
+}

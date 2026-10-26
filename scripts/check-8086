@@ -1,0 +1,77 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+
+=head1 NAME
+
+check-8086 - reject object code that needs more than an 8086
+
+=head1 SYNOPSIS
+
+  scripts/check-8086 OBJECT...
+
+=head1 DESCRIPTION
+
+Disassembles each OMF object with Open Watcom's C<wdis> (from C<$WATCOM>)
+and checks every instruction against the 8086 instruction set (decision
+5): the mnemonic must be an 8086 one, C<push> must not take an immediate,
+shifts and rotates must count by 1 or C<cl>, C<imul> takes one operand, and
+no operand may name a 32-bit, control, debug or FS/GS register. Prints
+each offending instruction with its object and exits 1 if there are any.
+
+An executable is checked by checking the objects its link map names.
+
+=cut
+
+my %MNEMONIC = map { $_ => 1 } qw(
+  aaa aad aam aas adc add and call cbw clc cld cli cmc cmp cmpsb cmpsw cwd
+  daa das dec div hlt idiv imul in inc int into iret ja jae jb jbe jcxz je
+  jg jge jl jle jmp jne jno jnp jns jo jp js lahf lds lea les lodsb lodsw
+  loop loope loopne mov movsb movsw mul neg nop not or out pop popf push
+  pushf rcl rcr ret retf rol ror sahf sar sbb scasb scasw shl shr stc std
+  sti stosb stosw sub test wait xchg xlat xor
+);
+my %PREFIX = map { $_ => 1 } qw(rep repe repne repz repnz lock);
+
+my $wdis = "$ENV{WATCOM}/binl64/wdis";
+my $bad  = 0;
+
+for my $object (@ARGV) {
+  open my $fh, '-|', $wdis, '-a', $object;
+  while (my $line = <$fh>) {
+    chomp $line;
+    # Instructions are indented by one tab and lowercase; directives,
+    # labels and data are not.
+    next unless $line =~ /^\t([a-z].*)$/;
+    my $insn = $1;
+    my ($mnemonic, $operands) = split /\t+/, $insn, 2;
+    my @words = split ' ', $mnemonic;
+    shift @words while @words > 1 && $PREFIX{ $words[0] };
+    $mnemonic = $words[0];
+    $operands //= '';
+    my $why = check($mnemonic, $operands);
+    if (defined $why) {
+      say "$object: $insn ($why)";
+      $bad = 1;
+    }
+  }
+  close $fh;
+}
+
+exit $bad;
+
+sub check ($mnemonic, $operands) {
+  return 'not an 8086 instruction' unless $MNEMONIC{$mnemonic};
+  my @ops = split /,/, $operands;
+  return 'register not on the 8086'
+    if $operands =~ /\b(?:e[abcd]x|e[sd]i|e[sb]p|[fg]s|cr\d|dr\d|tr\d)\b/;
+  return 'immediate push'
+    if $mnemonic eq 'push' && $operands !~ /^(?:[abcd]x|[sb]p|[sd]i|[cdes]s)$/
+      && $operands !~ /\[/;
+  return 'shift count other than 1 or cl'
+    if $mnemonic =~ /^(?:rcl|rcr|rol|ror|sar|shl|shr)$/ && @ops == 2 && $ops[1] !~ /^(?:1|cl)$/;
+  return 'multi-operand imul' if $mnemonic eq 'imul' && @ops > 1;
+  return;
+}

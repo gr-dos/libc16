@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+
+use 5.042;
+use warnings;
+use autodie;
+
+=head1 NAME
+
+check-memory - check the startup's memory block against the link maps
+
+=head1 SYNOPSIS
+
+  tests/startup/check-memory DIR
+
+=head1 DESCRIPTION
+
+Reads MEMORY.OUT and MEMSTK.OUT, written by memory.exe and memstk.exe
+under tests/run-dos, and checks that each program's memory block ends
+exactly at the top of its stack: 10h paragraphs of PSP, plus DGROUP's
+paragraph and the paragraphs up to the end of DGROUP, from its map. memstk
+is linked with 4 KiB more stack, so its block must be 256 paragraphs
+larger, and the largest free block must be at least 512 KiB, which it
+could not be had the startup kept all memory.
+
+=cut
+
+my ($dir) = @ARGV;
+die "usage: $0 DIR\n" unless defined $dir;
+
+my $failed = 0;
+my %block;
+for my $name (qw(memory memstk)) {
+  my %out = map { /^(\w+) (\w+)/ ? ($1 => $2) : () } read_lines("$dir/" . uc($name) . '.OUT');
+  my ($frame, $offset, $size) = map { /^DGROUP\s+([0-9a-f]{4}):([0-9a-f]{4})\s+([0-9a-f]{8})/ ? (hex $1, hex $2, hex $3) : () }
+    read_lines("$dir/$name.MAP");
+  die "$dir/$name.MAP: no DGROUP\n" unless defined $size;
+  my $want = 0x10 + $frame + int(($offset + $size + 15) / 16);
+  $block{$name} = $out{block};
+  check("$name block", $out{block}, $want);
+  check("$name free >= 32768", $out{free} >= 32768 ? 1 : 0, 1);
+}
+check('memstk block - memory block', $block{memstk} - $block{memory}, 256);
+exit $failed;
+
+sub check ($what, $got, $want) {
+  if ($got == $want) {
+    say "ok $what";
+  } else {
+    say "not ok $what: $got, expected $want";
+    $failed = 1;
+  }
+}
+
+sub read_lines ($file) {
+  open my $fh, '<', $file;
+  return map { s/\r?\n$//r } <$fh>;
+}

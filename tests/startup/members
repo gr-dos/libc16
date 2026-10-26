@@ -1,0 +1,10 @@
+# The libc16 members each startup test program links (tests/check-members).
+# main(void) needs only the core startup; a main that takes parameters
+# adds the argv hook and parser.
+
+status: cstart
+dirty:  cstart
+bss:    cstart
+memory: cstart
+memstk: cstart
+args:   argv args cstart

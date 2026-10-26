@@ -1,0 +1,3 @@
+/^block \d+$/
+psp ok
+/^free \d+$/
