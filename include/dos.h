@@ -13,7 +13,8 @@
 #define _A_SUBDIR 0x10
 #define _A_ARCH   0x20
 
-/* The DOS disk transfer area of a directory search (INT 21h 4Eh) */
+/* The DOS disk transfer area of a directory search (INT 21h 4Eh), 43 bytes */
+#pragma pack(__push, 1)
 struct find_t {
     char reserved[21];
     char attrib;
@@ -22,6 +23,7 @@ struct find_t {
     long size;
     char name[13];
 };
+#pragma pack(__pop)
 
 struct WORDREGS {
     unsigned int ax, bx, cx, dx, si, di, cflag;
@@ -35,6 +37,9 @@ union REGS {
     struct WORDREGS x;
     struct BYTEREGS h;
 };
+
+/* PSP segment of the program */
+extern unsigned __cdecl _psp;
 
 unsigned __cdecl _dos_findfirst(const char *path, unsigned attr, struct find_t *f);
 unsigned __cdecl _dos_findnext(struct find_t *f);
