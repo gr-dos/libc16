@@ -1,0 +1,3 @@
+# Each test program links only the string members it calls.
+
+string: cstart memcmp memcpy memset strcat strchr strcmp strcpy strerror stricmp strlen strlwr strncmp strrchr
