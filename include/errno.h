@@ -3,6 +3,8 @@
 #ifndef _LIBC16_ERRNO_H
 #define _LIBC16_ERRNO_H
 
+#include <_libc16.h>
+
 extern int __cdecl errno;
 
 #define ENOENT   2

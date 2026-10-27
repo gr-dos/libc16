@@ -4,8 +4,11 @@ allocations keep their contents ok
 free and reuse ok
 free neighbours merge ok
 malloc(0) is unique ok
+/^(near data: malloc\(65530\) fails with ENOMEM|far data: malloc\(65530\) is placed and keeps its contents) ok$/
+malloc(65531) fails with ENOMEM ok
 exhaustion returns NULL with ENOMEM ok
 exhausted heap keeps contents ok
+/^(near data: the heap ends within DGROUP|far data: more than 64 KiB in total) ok$/
 malloc(65535) fails with ENOMEM ok
 malloc(65533) fails with ENOMEM ok
 recovery after free ok

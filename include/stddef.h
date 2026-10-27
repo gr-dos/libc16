@@ -3,6 +3,8 @@
 #ifndef _LIBC16_STDDEF_H
 #define _LIBC16_STDDEF_H
 
+#include <_libc16.h>
+
 #ifndef _LIBC16_SIZE_T
 #define _LIBC16_SIZE_T
 typedef unsigned size_t;

@@ -1,6 +1,6 @@
 # Spec: startup, argv and exit
 
-**Members:** `cstart` (core startup), `argv` (hook), `args` (command-tail parser), `exit`  
+**Members:** `cstart` (core startup), `argv` (hook), `args` (command-tail parser), `exit`, in each of the small, compact and large libraries (decision 11)  
 **Minimum DOS:** 2.0  
 **Tests:** `tests/startup` (run by `tests/run-dos`, `tests/check-members`, `tests/startup/check-memory`, `tests/startup/check-null`), `tests/check-abi`, `tests/check-selective`
 
@@ -14,6 +14,21 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - `_edata` and `_end`: defined by wlink, observed by linking a module that references them and reading the map.
 - C standard (C99 5.1.2.2.1, "Program startup", and 5.1.2.2.3, "Program termination"): `argv[argc]` is a null pointer, the strings are modifiable, `argv[0]` is `""` when the program name is not available, and returning from the initial call to `main` is equivalent to calling `exit` with its value. C99 7.20.4.3 (`exit`).
 - A program with its own entry point: GR-DOS's ATTRIB, whose `ATTRIBA.ASM` (MS-DOS 4.00 source) sets up `DGROUP` and calls C itself.
+
+## Memory models
+
+Every member is built for the small, compact and large models from one source (`crt/model.inc`; `docs/ABI.md`, "Memory models"). What differs:
+
+| | small | compact | large |
+|---|---|---|---|
+| Call to `main_`, init routines, `__libc16_args_` | near | near | far |
+| `argv` passed to `main_` | `DX` | `CX:BX` (segment in `CX`) | `CX:BX` |
+| `___libc16_argv` | 2 bytes, near | 4 bytes, far (offset first) | 4 bytes, far |
+| Init table entry | 2 bytes, near | 2 bytes, near | 4 bytes, far (offset first) |
+| `DS` after a call to C code | `DGROUP` | any | any |
+| `exit`'s argument, on entry | `[SP+2]` | `[SP+2]` | `[SP+4]` |
+
+Everything else, including `DGROUP`'s layout and the memory block left to DOS, is the same in every model, and the small model's code is unchanged. With far data the startup may not assume `DS` is `DGROUP` after calling an init routine or any other C code, and sets it to `DGROUP` again before calling `main_`.
 
 ## Core startup (`cstart`)
 
@@ -29,8 +44,8 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 2. Set `SS` to `DGROUP` and `SP` to the same linear address as on entry, expressed relative to `DGROUP`, so that `option stack=n` keeps working. An `SP` that wraps to 0 means the stack ends at the top of a full 64 KiB `DGROUP`. Interrupts must be disabled while `SS` and `SP` disagree.
 3. Resize the program's memory block (INT 21h function 4Ah, `ES` = PSP) to end at the top of the stack: (`DGROUP` − PSP) paragraphs plus the stack top rounded up to a paragraph. `tests/startup/check-memory` checks this exactly.
 4. Zero every byte from `_edata` to `_end` with the direction flag clear. `_psp` (C name; symbol `__psp`, an `unsigned`) must hold the PSP segment once BSS is zeroed.
-5. Call each near pointer in the init table, in order.
-6. Call `main_` with `AX` = `__libc16_argc` and `DX` = `__libc16_argv` (both 0 unless an init routine set them).
+5. Call each pointer in the init table, in order (near, or far in the large model).
+6. Call `main_` with `DS` = `DGROUP`, `AX` = `__libc16_argc` and `argv` = `__libc16_argv` (`DX` in the small model, `CX:BX` with far data; both 0 unless an init routine set them).
 7. Terminate with INT 21h function 4Ch with `AL` = the low byte of `main`'s return value.
 
 **Null pointer:** no object of the program may be at offset 0 of `DGROUP`, because a pointer to it would be a null pointer (C99 6.3.2.3). The startup reserves the start of `DGROUP`, before `CONST`, with at least 2 bytes that hold no C object, whatever the size of the code and the order of the other modules.
@@ -39,7 +54,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 **Top of the stack:** `__libc16_stack_top` (C name, declared `extern char __cdecl __libc16_stack_top[]`; symbol `___libc16_stack_top`) is a label with no storage at the start of `LIBC16_STACK_END`, so its offset in `DGROUP` is the top of the stack for any `option stack=n`: the address step 2 sets `SP` to, and where the program's memory block ends, rounded up to a paragraph (step 3). The heap starts there (`docs/spec/heap.md`). It adds no bytes to a program, so programs that do not use it are unchanged. `tests/startup/check-memory` checks it against the end of `DGROUP` in the map.
 
-**Init table:** the entries are the near pointers in `LIBC16_INIT`, between a label at the start of `LIBC16_INIT_BEGIN` and one at the start of `LIBC16_INIT_END`. Init routines take no arguments and preserve `SI`, `DI`, `BP`, `DS` and `SS`.
+**Init table:** the entries are the pointers in `LIBC16_INIT` (near, or far in the large model; see "Memory models"), between a label at the start of `LIBC16_INIT_BEGIN` and one at the start of `LIBC16_INIT_END`. Init routines take no arguments and preserve `SI`, `DI`, `BP` and `SS`, and `DS` in the small model.
 
 **8086 only.** No instruction from the 80186 or later (`scripts/check-8086`).
 
@@ -49,7 +64,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 **Defines:** `__argc`, a label with no storage. **References:** `__libc16_args_`.
 
-**Must:** add `__libc16_args_` to the init table, declaring the three init segments in order.
+**Must:** add `__libc16_args_` to the init table (a near pointer, or a far one in the large model), declaring the three init segments in order.
 
 ## Command-tail parser (`args`)
 
@@ -61,7 +76,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - a double quote is removed and toggles quoting; inside quotes, spaces and tabs belong to the argument; `""` produces an empty argument;
 - 2n backslashes followed by a double quote give n backslashes, and the quote toggles quoting; 2n + 1 backslashes followed by a double quote give n backslashes and a literal double quote; backslashes not followed by a double quote are literal;
 - `argv[0]` is `""`, and `argv[argc]` is a null pointer;
-- the strings are in `DGROUP` (near pointers) and modifiable; the arrays hold the most arguments a 127-byte tail can produce (64), with no heap.
+- the strings and the `argv` array are in `DGROUP` (pointers to them are near in the small model and far with far data) and modifiable; the arrays hold the most arguments a 127-byte tail can produce (64), with no heap.
 
 The expected outputs in `tests/startup/*.expect` are part of this spec.
 
@@ -77,10 +92,10 @@ The expected outputs in `tests/startup/*.expect` are part of this spec.
 
 A program may have its own entry point instead of `cstart`. It defines no `main`, so nothing references `_cstart_`. Before it calls any C code, its entry must:
 
-- set `DS` and `SS` to `DGROUP`, with `SP` in `DGROUP` (small model: near pointers reach the stack);
+- set `DS` and `SS` to `DGROUP`, with `SP` in `DGROUP` (in the small model near pointers reach the stack, and in every model `SS` is `DGROUP`);
 - zero every byte from `_edata` to `_end`;
 - clear the direction flag;
 
-and it must terminate the program itself, or through `exit`. It should also keep offset 0 of `DGROUP` free of C objects (see "Null pointer"), for example with a 2-byte segment of class `BEGDATA`.
+and it must terminate the program itself, or through `exit`. In the large model it calls C code far. It should also keep offset 0 of `DGROUP` free of C objects (see "Null pointer"), for example with a 2-byte segment of class `BEGDATA`.
 
-Such a program may use every member that references no symbol `cstart` defines (`__psp`, `___libc16_stack_top`, `___libc16_argc`, `___libc16_argv`) and is not an init routine: the string functions, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `_dos_findfirst`, `_dos_findnext`, `_fullpath`, the low-level I/O functions of `docs/spec/io.md`, the stdio functions, `libc16_ultoa`, `libc16_ltoa`, the compiler support routines and `exit`. The heap (`malloc`, `free`, `strdup`), `getenv` and `_psp` link `cstart`, so a program with its own entry must not use them. `tests/startup/ownent` is such a program; `tests/check-members` checks that it links no `cstart`.
+Such a program may use every member that references no symbol `cstart` defines (`__psp`, `___libc16_stack_top`, `___libc16_argc`, `___libc16_argv`) and is not an init routine: the string functions, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `_dos_findfirst`, `_dos_findnext`, `_fullpath`, the low-level I/O functions of `docs/spec/io.md`, the stdio functions, `libc16_ultoa`, `libc16_ltoa`, `strtoul`, `atoi`, `strftime`, the `<ctype.h>` functions, the compiler support routines and `exit`. The heap (`malloc`, `free`, `realloc`, `calloc`, `strdup`), `getenv` and `_psp` link `cstart`, and so do `tzset`, `localtime`, `stat` and `utime` through `getenv`, so a program with its own entry must not use them. `tests/startup/ownent` is such a program; `tests/check-members` checks that it links no `cstart`.

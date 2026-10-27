@@ -28,7 +28,8 @@ line, verbatim), passing if its exit status is STATUS and, when the file
 NAME.expect exists next to CASES, its output matches it. In an expect file
 a line C</REGEX/> matches a line of output by regular expression; any
 other line must equal its line of output. Blank lines and lines starting
-with # are ignored. NAME is a DOS file name without extension, at most 8
+with # are ignored. A line C<set NAME=VALUE> sets an environment variable
+for the cases after it (C<set NAME=> removes it). NAME is a DOS file name without extension, at most 8
 characters. Cases run in order, in one DOSBox-X session. The files in the
 directory F<data> next to CASES, if there is one, are copied into DIR
 first, for cases that read them.
@@ -46,6 +47,10 @@ open my $in, '<', $cases;
 while (my $line = <$in>) {
   chomp $line;
   next if $line =~ /^\s*(?:#|$)/;
+  if ($line =~ /^set ([A-Za-z_]\w*=.*)$/) {
+    push @cases, { set => $1 };
+    next;
+  }
   my ($name, $status, $program, $args) = $line =~ /^(\S+)\s+(\d+)\s+(\S+)(?: (.*))?$/
     or die "$cases:$.: bad case\n";
   die "$cases:$.: name $name is not a DOS file name\n" unless $name =~ /^[a-z0-9_]{1,8}$/i;
@@ -64,6 +69,10 @@ if (-d "$expect_dir/data") {
 
 my @batch;
 for my $case (@cases) {
+  if (defined $case->{set}) {
+    push @batch, "set $case->{set}";
+    next;
+  }
   my ($name, $status) = $case->@{qw(name status)};
   my $above = $status + 1;
   push @batch, "$case->{command} >$name.OUT";
@@ -72,7 +81,7 @@ for my $case (@cases) {
   push @batch, "echo $name ok>>RESULT.TXT", "goto ${name}_d";
   push @batch, ":${name}_f", "echo $name FAIL>>RESULT.TXT", ":${name}_d";
 }
-unlink grep { -e } "$dir/RESULT.TXT", map { "$dir/$_->{name}.OUT" } @cases;
+unlink grep { -e } "$dir/RESULT.TXT", map { "$dir/$_->{name}.OUT" } grep { defined $_->{name} } @cases;
 write_file("$dir/RUN.BAT", join '', map { "$_\r\n" } @batch);
 
 my $abs = File::Spec->rel2abs($dir);
@@ -109,7 +118,7 @@ if (-e "$dir/RESULT.TXT") {
 }
 
 my $failed = 0;
-for my $case (@cases) {
+for my $case (grep { defined $_->{name} } @cases) {
   my $name = $case->{name};
   my @why;
   if (!defined $result{$name}) {

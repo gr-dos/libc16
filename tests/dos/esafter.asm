@@ -7,23 +7,28 @@
 ;       as int86x left it
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  _es_after_int86x
-        extrn   _int86x:near
+        extrn   _int86x:CDIST
 
-_es_after_int86x proc near
+; The arguments after es, copied for int86x: intno and three pointers.
+NARGS   equ     2+3*DPTR
+
+_es_after_int86x proc CDIST
         push    bp
         mov     bp, sp
         push    es
-        mov     es, [bp+4]
-        push    word ptr [bp+12]
-        push    word ptr [bp+10]
-        push    word ptr [bp+8]
-        push    word ptr [bp+6]
+        mov     es, [bp+ARG0]
+off     =       NARGS
+        rept    NARGS/2
+off     =       off-2
+        push    word ptr [bp+ARG0+2+off]
+        endm
         call    _int86x
-        add     sp, 8
+        add     sp, NARGS
         mov     ax, es
         pop     es
         pop     bp

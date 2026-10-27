@@ -1,8 +1,10 @@
 ; The entry point of tests/startup/ownent, in place of the core startup:
 ; DS and SS to DGROUP, BSS zeroed, the direction flag clear, then
-; ownmain_ (default convention), which ends the program through exit.
+; ownmain_ (default convention; a far call in the large model), which
+; ends the program through exit.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
 _TEXT   ends
@@ -20,7 +22,7 @@ STACK   ends
 
 DGROUP  group   NULLSEG, _DATA, _BSS, STACK
 
-        extrn   ownmain_:near
+        extrn   ownmain_:CDIST
         extrn   _edata:byte
         extrn   _end:byte
 

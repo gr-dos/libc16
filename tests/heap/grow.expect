@@ -1,0 +1,15 @@
+realloc(NULL, 100) is malloc(100) ok
+realloc(NULL, 0) is malloc(0) ok
+realloc grows, keeping the contents ok
+the grown block is writable ok
+realloc moves, freeing the old block ok
+realloc moves again, keeping the contents ok
+realloc to the same size stays ok
+realloc shrinks in place, keeping the contents ok
+shrinking frees the rest ok
+realloc(p, 0) keeps a unique block ok
+realloc(p, 65535) fails with ENOMEM ok
+failing keeps the old block ok
+realloc fails with ENOMEM when the heap is full ok
+failing keeps the old block ok
+realloc works after free, keeping the contents ok

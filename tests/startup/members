@@ -10,5 +10,7 @@ memstk: cstart
 stktop: cstart
 nullstr: cstart
 exitst: cstart exit
+init:   cstart
 ownent: exit int86 intdos segread strcat strcmp strcpy strlen
 args:   argv args cstart
+argfar: argv args cstart

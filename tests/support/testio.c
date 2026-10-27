@@ -5,7 +5,7 @@ static void dos_write(const char *buf, unsigned n);
     "mov bx, 1" \
     "mov ah, 40h" \
     "int 21h" \
-    parm [dx] [cx] modify [ax bx];
+    parm T_DS_DX [cx] modify [ax bx];
 
 void t_puts(const char *s)
 {

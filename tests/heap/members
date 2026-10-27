@@ -1,7 +1,12 @@
 # The libc16 members each heap test program links (tests/check-members).
-# malloc needs errno; free alone needs nothing else.
+# malloc needs errno; free alone needs nothing else; realloc and calloc
+# are linked only by the programs that call them, with the string
+# function each uses.
 
 heap:     cstart malloc free errno
 bigstk:   cstart malloc free errno
 blocked:  cstart malloc free errno
 freeonly: cstart free
+grow:     cstart malloc free realloc memcpy errno
+zeroed:   cstart malloc free calloc memset errno
+many:     cstart malloc free errno

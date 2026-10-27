@@ -5,11 +5,14 @@
 ; product are the same for signed and unsigned operands, so both symbols
 ; name one routine.
 ;
-; In:  AX:BX:CX:DX = a (AX the high word), DS:SI -> b (8 bytes, low word
-;      first), which is left unchanged
+; In:  AX:BX:CX:DX = a (AX the high word), SI -> b (8 bytes, low word
+;      first) in DGROUP, at DS:SI in the small model and SS:SI in the
+;      compact and large models; b is left unchanged
 ; Out: AX:BX:CX:DX = a * b mod 2^64; all else preserved
+; Called near, or far in the large model.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
@@ -18,8 +21,8 @@ _TEXT   segment byte public 'CODE'
 ; Schoolbook multiplication in 16-bit words, keeping only the words of the
 ; product below 2^64: for each word a[i], r[i+j] += a[i] * b[j] for
 ; i + j < 4, carrying into the next word. a and r are on the stack.
-__I8M:
-__U8M:
+__I8M   proc    CDIST
+__U8M   label   CDIST
         push    bp
         push    di
         push    si
@@ -40,7 +43,11 @@ next_row:
         mov     si, [bp+di+8]           ; SI = a[i]
         xor     cx, cx                  ; CX = carry
 next_column:                            ; DI = 2(i+j)
+ifdef FARDATA
+        mov     ax, ss:[bx+di]          ; b[j]
+else
         mov     ax, [bx+di]             ; b[j]
+endif
         mul     si
         add     ax, cx
         adc     dx, 0
@@ -67,6 +74,7 @@ next_column:                            ; DI = 2(i+j)
         pop     di
         pop     bp
         ret
+__I8M   endp
 _TEXT   ends
 
         end

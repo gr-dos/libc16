@@ -1,13 +1,15 @@
-; libc16 core startup for small-model DOS .EXE programs.
+; libc16 core startup for DOS .EXE programs, in the small, compact and
+; large models (crt/model.inc).
 ;
-; Written from docs/spec/startup.md ("Core startup"), docs/ABI.md and the
-; DOS .EXE load state and INT 21h functions 4Ah and 4Ch as documented in
-; Ralf Brown's Interrupt List. Needs DOS 2.0 and an 8086.
+; Written from docs/spec/startup.md ("Core startup", "Memory models"),
+; docs/ABI.md and the DOS .EXE load state and INT 21h functions 4Ah and
+; 4Ch as documented in Ralf Brown's Interrupt List. Needs DOS 2.0 and an 8086.
 ;
 ; Every program links this member, so it is kept as small as it can be
 ; while still doing everything the spec requires.
 
         .8086
+        include model.inc
         dosseg
 
 ; Segment order (spec, "Segments"). The code segment matches the one wcc
@@ -31,8 +33,9 @@ CONST2  ends
 _DATA   segment word public 'DATA'
 _DATA   ends
 
-; The init table (spec, "Init table"). All three segments are word aligned
-; so that no padding can fall between the start label and the first entry.
+; The init table (spec, "Init table"): near pointers, or far ones in the
+; large model. All three segments are word aligned so that no padding can
+; fall between the start label and the first entry.
 LIBC16_INIT_BEGIN segment word public 'DATA'
 init_first label word
 LIBC16_INIT_BEGIN ends
@@ -46,7 +49,11 @@ _BSS    segment word public 'BSS'
         public  __psp, ___libc16_argc, ___libc16_argv
 __psp           dw ?            ; C _psp: PSP segment
 ___libc16_argc  dw ?            ; C __libc16_argc: argc for main
+ifdef FARDATA
+___libc16_argv  dd ?            ; C __libc16_argv: argv for main, offset first
+else
 ___libc16_argv  dw ?            ; C __libc16_argv: argv for main
+endif
 _BSS    ends
 
 ; Default stack; wlink's "option stack=n" resizes it.
@@ -65,7 +72,7 @@ LIBC16_STACK_END ends
 DGROUP  group   LIBC16_NULL, CONST, CONST2, _DATA, LIBC16_INIT_BEGIN, \
                 LIBC16_INIT, LIBC16_INIT_END, _BSS, STACK, LIBC16_STACK_END
 
-        extrn   main_:near
+        extrn   main_:CDIST
         extrn   _edata:byte, _end:byte      ; defined by wlink
 
 _TEXT   segment
@@ -116,21 +123,41 @@ _cstart_:
         rep     stosb
         mov     __psp, dx
 
-; Step 5: call each init entry in link order. Init routines preserve SI.
+; Step 5: call each init entry in link order. Init routines preserve SI
+; and SS; with far data they may change DS, so the table is read through
+; SS.
         mov     si, offset DGROUP:init_first
 next_init:
         cmp     si, offset DGROUP:init_limit
         jae     run_main
+ifdef FARCODE
+        call    dword ptr ss:[si]
+        add     si, 4
+elseifdef FARDATA
+        call    word ptr ss:[si]
+        inc     si
+        inc     si
+else
         call    word ptr [si]
         inc     si
         inc     si
+endif
         jmp     next_init
 
 ; Steps 6 and 7: main_ under the register convention, then exit with the
-; low byte of its result.
+; low byte of its result. With far data DS is DGROUP again first, and
+; argv is in CX:BX.
 run_main:
+ifdef FARDATA
+        push    ss
+        pop     ds
+        mov     ax, ___libc16_argc
+        mov     bx, word ptr ___libc16_argv
+        mov     cx, word ptr ___libc16_argv+2
+else
         mov     ax, ___libc16_argc
         mov     dx, ___libc16_argv
+endif
         call    main_
         mov     ah, 4Ch
         int     21h

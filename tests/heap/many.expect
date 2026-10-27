@@ -1,0 +1,6 @@
+thousands of small allocations are placed ok
+thousands of small allocations keep their contents ok
+/^(near data: the lines fit in DGROUP|far data: more than 64 KiB in lines) ok$/
+freed lines are allocated again ok
+every line keeps its contents ok
+a large block after freeing them all ok

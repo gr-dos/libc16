@@ -20,7 +20,7 @@ static unsigned long get_cwd(unsigned char drive, char *dir);
     "mov ah, 47h" \
     "int 21h" \
     "sbb dx, dx" \
-    parm [dl] [si] value [dx ax] modify exact [ax dx];
+    parm [dl] DS_SI value [dx ax] modify exact [ax dx];
 
 static int is_sep(char c)
 {

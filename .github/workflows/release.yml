@@ -93,7 +93,9 @@ jobs:
             echo 'Similarity audit (docs/AUDIT.txt in the archive):'
             echo
             echo '```text'
-            cat build/audit.txt
+            for lib in s/LIBC16 c/LIBC16C l/LIBC16L; do
+              echo "== ${lib#*/}.LIB"; cat "build/${lib%/*}/audit.txt"; echo
+            done
             echo '```'
           } > build/dist/notes.md
           gh release create "v$VERSION" \

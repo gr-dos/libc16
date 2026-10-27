@@ -8,6 +8,7 @@ memstk  0  memstk
 stktop  0  stktop
 nullstr 0  nullstr
 exitst  5  exitst
+init    0  init
 
 # A program with its own entry point instead of the core startup
 ownent  7  ownent
@@ -19,3 +20,6 @@ argws   0  args  one	two   three
 argquot 0  args "a b" c" "d "" e
 argbs   0  args a\b c\\"d e" \"f\\\"g h\\
 argmax  0  args 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
+
+# argv's array and strings in DGROUP, modified through far pointers
+argfar  0  argfar ab cD

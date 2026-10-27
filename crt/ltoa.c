@@ -7,6 +7,22 @@
 
 /* *value /= radix, returning the remainder: a radix below 2^16 lets two
  * 32-by-16 divides, high word first, do it without the 32-bit helper. */
+#if defined(__COMPACT__) || defined(__LARGE__)
+/* With far data DS may hold buf's segment by now. *value is always a
+ * local, so in DGROUP, which SS holds (docs/ABI.md, "Memory models"): pass
+ * its offset and reach it through SS. */
+static unsigned divide_ss(unsigned long __near *value, unsigned radix);
+#define divide(value, radix) divide_ss((unsigned long __near *)(value), radix)
+#pragma aux divide_ss = \
+    "xor dx, dx" \
+    "mov ax, ss:2[bx]" \
+    "div cx" \
+    "mov ss:2[bx], ax" \
+    "mov ax, ss:[bx]" \
+    "div cx" \
+    "mov ss:[bx], ax" \
+    parm [bx] [cx] value [dx] modify [ax dx];
+#else
 static unsigned divide(unsigned long *value, unsigned radix);
 #pragma aux divide = \
     "xor dx, dx" \
@@ -17,6 +33,7 @@ static unsigned divide(unsigned long *value, unsigned radix);
     "div cx" \
     "mov [bx], ax" \
     parm [bx] [cx] value [dx] modify [ax dx];
+#endif
 
 char * __cdecl libc16_ltoa(long value, char *buf, int radix)
 {

@@ -3,6 +3,8 @@
 #ifndef _LIBC16_FCNTL_H
 #define _LIBC16_FCNTL_H
 
+#include <_libc16.h>
+
 #define O_RDONLY 0x0000
 #define O_WRONLY 0x0001
 #define O_RDWR   0x0002

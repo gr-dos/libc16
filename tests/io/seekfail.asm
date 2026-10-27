@@ -11,6 +11,7 @@
 ; The state is in the code segment, so the handler needs only CS.
 
         .8086
+        include model.inc
 
 _TEXT   segment word public 'CODE'
         assume  cs:_TEXT
@@ -39,7 +40,7 @@ fail:
         iret
 
         public  _seekfail_install
-_seekfail_install proc near
+_seekfail_install proc CDIST
         push    es
         push    bx
         mov     ax, 3521h
@@ -59,7 +60,7 @@ _seekfail_install proc near
 _seekfail_install endp
 
         public  _seekfail_remove
-_seekfail_remove proc near
+_seekfail_remove proc CDIST
         push    ds
         lds     dx, cs:old21
         mov     ax, 2521h
@@ -69,12 +70,12 @@ _seekfail_remove proc near
 _seekfail_remove endp
 
         public  _seekfail
-_seekfail proc near
+_seekfail proc CDIST
         push    bp
         mov     bp, sp
-        mov     ax, [bp + 6]
+        mov     ax, [bp + ARG0 + 2]
         mov     cs:skip, ax
-        mov     al, [bp + 4]
+        mov     al, [bp + ARG0]
         mov     cs:origin, al
         pop     bp
         ret

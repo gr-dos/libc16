@@ -1,4 +1,4 @@
-# Build LIBC16.LIB and run make test: the ABI, link-map, 8086 and selective
+# Build the libraries of every model and run make test: the ABI, link-map, 8086 and selective
 # linking checks and the test programs under DOSBox-X (decisions 5 and 7).
 # Then make dist: the similarity audit (decision 6) and the release ZIP,
 # checked by scripts/check-dist, as the release workflow builds them.
@@ -57,11 +57,11 @@ jobs:
         with:
           name: libc16
           path: |
-            build/LIBC16.LIB
+            build/*/*.LIB
             build/make.log
             build/test.log
             build/dist.log
-            build/audit.txt
+            build/*/audit.txt
             build/dist/
-            build/tests/
+            build/*/tests/
           if-no-files-found: warn

@@ -10,18 +10,21 @@ check-abi - check the calling convention contract of docs/ABI.md
 
 =head1 SYNOPSIS
 
-  tests/check-abi OUTDIR WCC-FLAGS...
+  tests/check-abi MODEL OUTDIR WCC-FLAGS...
 
 =head1 DESCRIPTION
 
 Compiles the call-site fixtures in tests/abi with C<wcc> and WCC-FLAGS, the
-flags a consumer uses, into OUTDIR, disassembles them with C<wdis>, and
-checks what docs/ABI.md states:
+flags a consumer uses for memory model MODEL (C<s>, C<c> or C<l>), into
+OUTDIR, disassembles them with C<wdis>, and checks what docs/ABI.md states:
 
 =over
 
 =item * a __cdecl function is called as C<_name> with its arguments pushed
-right to left and popped by the caller;
+right to left and popped by the caller, with a near call in the small and
+compact models and a far call in the large model; in the compact and large
+models, the caller sets C<DS> to C<SS> (C<DGROUP>) first and a data
+pointer is pushed as segment and offset;
 
 =item * variables are C<_name> with or without __cdecl;
 
@@ -31,7 +34,8 @@ when it takes parameters;
 =item * a default-convention function does not compile as a __cdecl
 callback;
 
-=item * the arithmetic helper symbols are those listed in docs/ABI.md.
+=item * the arithmetic helper symbols are those listed in docs/ABI.md, and
+are called near in the small and compact models and far in the large model.
 
 =back
 
@@ -39,8 +43,9 @@ Prints one line per check and exits 1 if any fails.
 
 =cut
 
-my ($out, @flags) = @ARGV;
-die "usage: $0 OUTDIR WCC-FLAGS...\n" unless @flags;
+my ($model, $out, @flags) = @ARGV;
+die "usage: $0 MODEL OUTDIR WCC-FLAGS...\n" unless @flags && $model =~ /^[scl]$/;
+my $call = $model eq 'l' ? 'far' : 'near';
 my $dir = 'tests/abi';
 mkdir $out unless -d $out;
 my $failed = 0;
@@ -48,8 +53,10 @@ my $failed = 0;
 my %dis = map { $_ => disassemble($_) } qw(cdecl data mainvoid mainargs callback arith);
 
 check('cdecl call by _name', $dis{cdecl} =~ /^\t\tEXTRN\t_libfn:/m);
-check('cdecl arguments right to left, caller pops',
-  $dis{cdecl} =~ /^\tpush\t+dx\n\tpush\t+ax\n\tcall\t+near ptr _libfn\n\tadd\t+sp,4\n/m);
+check('cdecl arguments right to left, caller pops', $model eq 's'
+  ? $dis{cdecl} =~ /^\tpush\t+dx\n\tpush\t+ax\n\tcall\t+near ptr _libfn\n\tadd\t+sp,4\n/m
+  : $dis{cdecl} =~ /^\tpush\t+bx\n\tpush\t+dx\n\tpush\t+ax\n\tpush\t+ss\n\tpop\t+ds\n
+                    \tcall\t+$call\ ptr\ _libfn\n\tadd\t+sp,6\n/mx);
 check('variables are _name', $dis{data} =~ /EXTRN\t_cvar:/ && $dis{data} =~ /EXTRN\t_wvar:/);
 check('main(void) is main_', $dis{mainvoid} =~ /PUBLIC\tmain_\n/);
 check('main(void) references _cstart_ only', join(' ', externs($dis{mainvoid})) eq '_cstart_');
@@ -59,6 +66,8 @@ check('__cdecl callback compiles', defined $dis{callback});
 check('default-convention callback does not compile', !compile('badcb'));
 check('arithmetic helpers', join(' ', sort(externs($dis{arith}))) eq
   '__I4D __I4M __I8DQ __I8DR __I8LS __I8M __I8RS __U4D __U4M __U8DQ __U8DR __U8LS __U8M __U8RS');
+my @helper_calls = $dis{arith} =~ /^\t(?:call|jmp)\t+(\w+) ptr __[IU][48]/mg;
+check("arithmetic helpers are $call calls", @helper_calls == 14 && !grep { $_ ne $call } @helper_calls);
 
 exit $failed;
 

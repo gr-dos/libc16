@@ -4,6 +4,7 @@
 ; interrupt number is stored into the INT instruction below.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
@@ -13,20 +14,32 @@ _TEXT   segment byte public 'CODE'
 ;                    struct SREGS *segs)
 ; union REGS: ax, bx, cx, dx, si, di, cflag at offsets 0 to 12.
 ; struct SREGS: es, cs, ss, ds at offsets 0 to 6.
-_int86x proc    near
+IN_     equ     ARG0+2
+OUT_    equ     ARG0+2+DPTR
+SEGS_   equ     ARG0+2+2*DPTR
+
+_int86x proc    CDIST
         push    bp
         mov     bp, sp
         push    si
         push    di
-        push    ds                      ; [bp-6]: DGROUP
+        push    ds                      ; [bp-6]: the caller's DS
         push    es                      ; the caller's, restored at the end
-        mov     al, [bp+4]
+        mov     al, [bp+ARG0]
         mov     cs:intnum, al
         jmp     short load              ; the store above may be prefetched
-load:   mov     bx, [bp+10]
+ifdef FARDATA
+load:   lds     bx, [bp+SEGS_]
+else
+load:   mov     bx, [bp+SEGS_]
+endif
         mov     es, [bx]
         push    word ptr [bx+6]         ; DS for the interrupt
-        mov     bx, [bp+6]
+ifdef FARDATA
+        lds     bx, [bp+IN_]
+else
+        mov     bx, [bp+IN_]
+endif
         mov     ax, [bx]
         mov     cx, [bx+4]
         mov     dx, [bx+6]
@@ -37,12 +50,16 @@ load:   mov     bx, [bp+10]
         push    bp
         db      0cdh                    ; INT intnum
 intnum  db      0
-        pop     bp                      ; neither POP nor MOV changes flags
+        pop     bp                      ; neither POP, MOV nor LDS changes flags
         pushf
         push    ds
         push    bx
+ifdef FARDATA
+        lds     bx, [bp+OUT_]
+else
         mov     ds, [bp-6]
-        mov     bx, [bp+8]
+        mov     bx, [bp+OUT_]
+endif
         mov     [bx], ax
         pop     word ptr [bx+2]
         mov     [bx+4], cx
@@ -53,7 +70,11 @@ intnum  db      0
         pop     dx                      ; its flags
         and     dx, 1                   ; carry
         mov     [bx+12], dx
-        mov     bx, [bp+10]
+ifdef FARDATA
+        lds     bx, [bp+SEGS_]
+else
+        mov     bx, [bp+SEGS_]
+endif
         mov     [bx], es
         mov     [bx+6], cx
         cld

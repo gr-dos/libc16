@@ -7,16 +7,18 @@
 ;
 ; In:  DX:AX = a, CX:BX = b
 ; Out: DX:AX = a * b mod 2^32; BX and CX changed; all else preserved
+; Called near, or far in the large model.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  __I4M, __U4M
 
 ; a * b = alo*blo + ((ahi*blo + alo*bhi) mod 2^16) * 2^16
-__I4M:
-__U4M:
+__I4M   proc    CDIST
+__U4M   label   CDIST
         push    si
         xchg    si, ax                  ; SI = alo
         xchg    ax, dx                  ; AX = ahi
@@ -29,6 +31,7 @@ __U4M:
         add     dx, cx
         pop     si
         ret
+__I4M   endp
 _TEXT   ends
 
         end

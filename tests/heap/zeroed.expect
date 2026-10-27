@@ -1,0 +1,7 @@
+calloc(100, 30) is zeroed ok
+calloc(1, 1) is zeroed ok
+calloc of 0 bytes is unique ok
+calloc(32768, 2) overflows with ENOMEM ok
+calloc(3, 21846) overflows with ENOMEM ok
+calloc(65535, 65535) overflows with ENOMEM ok
+calloc(1, 65535) fails with ENOMEM ok

@@ -4,21 +4,29 @@
 ; Written from docs/spec/arith.md. Restoring binary division, one quotient
 ; bit per step: small rather than fast.
 ;
-; In:  DS:DI -> dividend (8 bytes, low word first), DS:SI -> divisor
-;      (8 bytes, left unchanged)
+; In:  DI -> dividend (8 bytes, low word first), SI -> divisor (8 bytes,
+;      left unchanged), both at DS in the small model and at SS in the
+;      compact and large models
 ; Out: [DI] = quotient, AX:BX:CX:DX = remainder (AX the high word);
 ;      SI, DI, BP, DS and ES preserved
+; Called near, or far in the large model.
 ; A zero divisor gives a quotient of all ones and the dividend as the
 ; remainder.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  __libc16_u8div
 
-__libc16_u8div:
+__libc16_u8div proc CDIST
         push    bp
+ifdef FARDATA
+        push    ds
+        push    ss
+        pop     ds
+endif
         xor     ax, ax                  ; AX:BX:CX:DX = partial remainder
         xor     bx, bx
         xor     cx, cx
@@ -52,8 +60,12 @@ subtract:
 shifted:
         dec     bp
         jnz     next_bit
+ifdef FARDATA
+        pop     ds
+endif
         pop     bp
         ret
+__libc16_u8div endp
 _TEXT   ends
 
         end

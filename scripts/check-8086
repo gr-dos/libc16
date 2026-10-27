@@ -69,7 +69,7 @@ sub check ($mnemonic, $operands) {
     if $operands =~ /\b(?:e[abcd]x|e[sd]i|e[sb]p|[fg]s|cr\d|dr\d|tr\d)\b/;
   return 'immediate push'
     if $mnemonic eq 'push' && $operands !~ /^(?:[abcd]x|[sb]p|[sd]i|[cdes]s)$/
-      && $operands !~ /\[/;
+      && $operands !~ /\[|\bptr\b/;
   return 'shift count other than 1 or cl'
     if $mnemonic =~ /^(?:rcl|rcr|rol|ror|sar|shl|shr)$/ && @ops == 2 && $ops[1] !~ /^(?:1|cl)$/;
   return 'multi-operand imul' if $mnemonic eq 'imul' && @ops > 1;

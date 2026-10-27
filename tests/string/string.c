@@ -4,6 +4,9 @@
 #include <string.h>
 #include "check.h"
 
+/* Outside DGROUP in every model */
+static char __far fbuf[16];
+
 static int sign(int v)
 {
     return v < 0 ? -1 : v > 0;
@@ -48,6 +51,28 @@ int main(void)
     strcpy(buf, "MiXeD 1-Z@[");
     CHECK(strlwr(buf) == buf && strcmp(buf, "mixed 1-z@[") == 0);
 
+    /* overlapping and bounded copies */
+    strcpy(buf, "abcdef");
+    CHECK(memmove(buf + 2, buf, 4) == buf + 2 && memcmp(buf, "ababcd", 6) == 0);
+    strcpy(buf, "abcdef");
+    CHECK(memmove(buf, buf + 2, 4) == buf && memcmp(buf, "cdefef", 6) == 0);
+    CHECK(memmove(buf, buf, 6) == buf && memmove(buf, "z", 0) == buf && buf[0] == 'c');
+    memset(buf, 'x', sizeof buf);
+    CHECK(strncpy(buf, "ab", 5) == buf && memcmp(buf, "ab\0\0\0x", 6) == 0);
+    CHECK(strncpy(buf, "abcdef", 3) == buf && memcmp(buf, "abc\0", 4) == 0);
+    CHECK(strncpy(buf, "q", 0) == buf && buf[0] == 'a');
+    strcpy(buf, "ab");
+    CHECK(strncat(buf, "cdef", 2) == buf && strcmp(buf, "abcd") == 0);
+    CHECK(strncat(buf, "e", 5) == buf && strcmp(buf, "abcde") == 0);
+    CHECK(strncat(buf, "f", 0) == buf && strcmp(buf, "abcde") == 0);
+    CHECK(strnicmp("HeLLo!", "hEllO?", 5) == 0);
+    CHECK(sign(strnicmp("HeLLo!", "hEllO?", 6)) == -1);
+    CHECK(sign(strnicmp("abc", "AB", 3)) == 1 && strnicmp("abc", "ABD", 2) == 0);
+    CHECK(strnicmp("a", "b", 0) == 0 && strnicmp("ab", "AB", 10) == 0);
+    CHECK(_fmemcpy(fbuf, "far copy", 9) == fbuf);
+    CHECK(_fmemcpy(buf, fbuf, 9) == (void __far *)buf && strcmp(buf, "far copy") == 0);
+    CHECK(_fmemcpy(fbuf + 4, fbuf, 0) == fbuf + 4 && fbuf[4] == 'c');
+
     /* searches */
     CHECK(strchr(s, 'l') == s + 2);
     CHECK(strrchr(s, 'l') == s + 3);
@@ -55,6 +80,9 @@ int main(void)
     CHECK(strchr(s, '\0') == s + 5 && strrchr(s, '\0') == s + 5);
     CHECK(strchr(s, 'h' + 256) == s);
     CHECK(strchr(hi, 0x80) == hi + 1);
+    CHECK(strpbrk(s, "ol") == s + 2 && strpbrk(s, "xyz") == NULL);
+    CHECK(strpbrk(s, "") == NULL && strpbrk("", "a") == NULL);
+    CHECK(strpbrk(hi, "\x80") == hi + 1);
 
     /* messages */
     CHECK(strcmp(strerror(0), "No error") == 0);

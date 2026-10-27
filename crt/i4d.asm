@@ -8,16 +8,18 @@
 ;
 ; In:  DX:AX = dividend, CX:BX = divisor
 ; Out: DX:AX = quotient, CX:BX = remainder; all else preserved
+; Called near, or far in the large model.
 
         .8086
+        include model.inc
 
-        extrn   __U4D:near
+        extrn   __U4D:CDIST
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  __I4D
 
-__I4D:
+__I4D   proc    CDIST
         push    si
         push    di
         mov     si, dx                  ; SI sign: the remainder's
@@ -51,6 +53,7 @@ remainder_done:
         pop     di
         pop     si
         ret
+__I4D   endp
 _TEXT   ends
 
         end

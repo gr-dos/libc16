@@ -6,6 +6,8 @@
 #ifndef _LIBC16_STDARG_H
 #define _LIBC16_STDARG_H
 
+#include <_libc16.h>
+
 typedef char *va_list;
 
 #define _LIBC16_VA_SIZE(t) ((sizeof(t) + 1) & ~1)
