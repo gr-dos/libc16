@@ -19,7 +19,7 @@ GR-DOS's ATTRIB and MEM are Microsoft's MS-DOS 4.00 sources (Microsoft C 5.1), a
 
 ## Observations
 
-- **Memory models.** `tar16` (large) and `tico16` (compact) cannot link with libc16, which supports only the small model (DESIGN.md §2). They stay `pending` unless they move to the small model or libc16 adds a model.
+- **Memory models.** `tar16` (large) and `tico16` (compact) could not link with libc16 0.02, which had only the small model. From 0.03 libc16 has a library per model (decision 11): `LIBC16C.LIB` for `-mc` and `LIBC16L.LIB` for `-ml`. Their functions are `__cdecl` with far data pointers as well, so `tico16`'s `_harderr` handler is declared `__cdecl __far` (`docs/spec/dos.md`), and `tar16` defines the POSIX names it uses (`S_IRUSR`, `S_ISDIR` and the like) from Microsoft's `S_IREAD`, `S_IWRITE` and `S_IFMT`, which are what libc16's `<sys/stat.h>` has. Open Watcom's `<stdio.h>` makes `fileno` a macro, so it was missing from the inventory; libc16 0.03 has it as a macro too.
 - **Formatting.** Every consumer uses `printf` and `fprintf`, and `df16`, `which16`, `tar16` and `tico16` use `sprintf`. Decision 3 prefers `libc16_` helpers for simple formatting, so each migration includes replacing the simple calls in the consumer.
 - **Streams.** Every consumer writes to `stdout`/`stderr` through `FILE`; `crcsum16` and `md5sum16` also read files through `fopen`/`fgetc`.
 - **errno.** Open Watcom's headers reach `errno` through `__get_errno_ptr`; libc16's headers define their own.
@@ -30,7 +30,7 @@ GR-DOS's ATTRIB and MEM are Microsoft's MS-DOS 4.00 sources (Microsoft C 5.1), a
 A consumer gets libc16 from a release (DESIGN.md §3 and §9):
 
 - **`scripts/fetch-libc16`**, a copy of libc16's `consumers/fetch-libc16`, pins one release by `version` and `sha256`. It downloads `libc16-<version>.zip` from the `v<version>` release, checks its SHA-256 before unpacking it, and unpacks its `libc16-<version>/` directory as `build/libc16`. CI and releases never follow a branch.
-- **`LIBC16_ROOT`** (default `build/libc16`) is the libc16 tree the `Makefile` uses. It may also name an unpacked release elsewhere, or a libc16 checkout built with `make`, whose `build/stage` has the same layout. That is the local override for development and A/B comparisons. The `Makefile` reads `$(LIBC16_DIR)/lib/LIBC16.LIB` and `$(LIBC16_DIR)/include`, where `LIBC16_DIR` is `$(LIBC16_ROOT)/build/stage` if that exists and `$(LIBC16_ROOT)` otherwise.
+- **`LIBC16_ROOT`** (default `build/libc16`) is the libc16 tree the `Makefile` uses. It may also name an unpacked release elsewhere, or a libc16 checkout built with `make`, whose `build/stage` has the same layout. That is the local override for development and A/B comparisons. The `Makefile` reads `$(LIBC16_DIR)/lib/LIBC16.LIB` (or `LIBC16C.LIB`, `LIBC16L.LIB` for a compact or large program) and `$(LIBC16_DIR)/include`, where `LIBC16_DIR` is `$(LIBC16_ROOT)/build/stage` if that exists and `$(LIBC16_ROOT)` otherwise.
 - **The toolchain** is the Open Watcom snapshot the release was built with. `$(LIBC16_DIR)/tools/fetch-watcom build/tools` downloads it, checks its SHA-256 and prints the `WATCOM` directory. CI caches `build/tools` keyed on `scripts/fetch-libc16`.
 - **`LIBC16_URL`** makes `scripts/fetch-libc16` fetch the same archive from elsewhere, such as a mirror or a candidate build being tested. The pinned SHA-256 still applies.
 
