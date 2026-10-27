@@ -57,8 +57,8 @@ GR-DOS (M3, DESIGN.md §8) replaces its own runtime, `compat/crt`, with libc16 0
 
 | Program | `compat/crt` → libc16 | 360 KB disk clusters | Own memory (`MEM /PROGRAM`) |
 |---|---|---|---|
-| `ATTRIB.EXE` | 19,446 → 19,367 bytes | 19 → 19 | |
-| `MEM.EXE` | 11,986 → 12,034 bytes | 12 → 12 | 3A40h → 3A70h bytes |
+| `ATTRIB.EXE` | 19,446 → 19,369 bytes | 19 → 19 | |
+| `MEM.EXE` | 11,986 → 12,036 bytes | 12 → 12 | 3A40h → 3A70h bytes |
 
 Where a consumer has an assembly version that its tests compare byte for byte with the C program, the assembly had copied Open Watcom's runtime behaviour. It now follows libc16's specs instead: Microsoft's argument splitting, libc16's `errno` mapping and messages, unbuffered streams, `_fullpath` and `getenv` limits.
 
