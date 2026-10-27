@@ -3,21 +3,22 @@
 ; Written from docs/spec/dos.md and docs/ABI.md.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  _bdos
 
 ; int __cdecl bdos(int dosfn, unsigned dosdx, unsigned dosal)
-_bdos   proc    near
+_bdos   proc    CDIST
         push    bp
         mov     bp, sp
         push    si
         push    di
         push    ds
-        mov     ah, [bp+4]
-        mov     dx, [bp+6]
-        mov     al, [bp+8]
+        mov     ah, [bp+ARG0]
+        mov     dx, [bp+ARG0+2]
+        mov     al, [bp+ARG0+4]
         push    bp
         int     21h
         pop     bp

@@ -41,7 +41,7 @@ static void make_dir(const char *path);
 #pragma aux make_dir = \
     "mov ah, 39h" \
     "int 21h" \
-    parm [dx] modify exact [ax];
+    parm T_DS_DX modify exact [ax];
 
 static void finds(void)
 {

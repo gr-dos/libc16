@@ -17,7 +17,7 @@ static void set_dta(void *dta);
 #pragma aux set_dta = \
     "mov ah, 1ah" \
     "int 21h" \
-    parm [dx] modify exact [ax];
+    parm DS_DX modify exact [ax];
 
 static void set_dta_far(unsigned seg, unsigned off);
 #pragma aux set_dta_far = \
@@ -32,7 +32,7 @@ static unsigned long find(unsigned char fn, const char *path, unsigned attr);
 #pragma aux find = \
     "int 21h" \
     "sbb dx, dx" \
-    parm [ah] [dx] [cx] value [dx ax] modify exact [ax dx];
+    parm [ah] DS_DX [cx] value [dx ax] modify exact [ax dx];
 
 unsigned __libc16_find(unsigned char fn, const char *path, unsigned attr, struct find_t *f)
 {

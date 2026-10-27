@@ -3,6 +3,7 @@
 ; Written from docs/spec/dos.md and docs/ABI.md.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
@@ -10,7 +11,7 @@ _TEXT   segment byte public 'CODE'
 
 ; int __cdecl kbhit(void)
 ; INT 21h function 0Bh: AL = 0FFh if a character is waiting, else 0.
-_kbhit  proc    near
+_kbhit  proc    CDIST
         mov     ah, 0bh
         int     21h
         xor     ah, ah

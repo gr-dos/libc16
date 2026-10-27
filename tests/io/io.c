@@ -16,7 +16,7 @@ static unsigned set_attr(const char *path, unsigned attr);
     "mov ax, 4301h" \
     "int 21h" \
     "sbb ax, ax" \
-    parm [dx] [cx] value [ax];
+    parm T_DS_DX [cx] value [ax];
 
 /* tests/io/seekfail.asm: fail one INT 21h function 42h call */
 void __cdecl seekfail_install(void);
