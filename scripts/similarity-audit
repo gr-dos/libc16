@@ -1,0 +1,242 @@
+#!/usr/bin/env perl
+#
+# Similarity audit (DESIGN.md decision 6): compare the code of each
+# member of LIBC16.LIB with the code of an Open Watcom runtime library
+# and print only scores.
+#
+# usage: scripts/similarity-audit [--max SCORE] [--min-shingles N] \
+#            LIBC16.LIB CORPUS.lib|.obj...
+#
+# Both sides are read as OMF records, without disassembly: the bytes of
+# each LEDATA record in a segment of a class ending in CODE, with the
+# bytes a FIXUPP record patches left out. Each member's code is cut into
+# overlapping runs of K bytes ("shingles"), runs that cross a fixup or a
+# segment boundary excluded. For each libc16 member the audit prints
+#
+#   best   the fraction of its shingles found in the one corpus member
+#          that contains most of them
+#   any    the fraction found anywhere in the corpus
+#
+# and nothing about the corpus but its size. A member with at least
+# --min-shingles shingles (default 16) whose best score is above --max
+# (default 0.50) fails the audit (exit status 1). Shorter members are
+# listed but not judged: a few common instructions match by chance.
+
+use v5.36;
+use File::Basename qw(basename);
+use Getopt::Long qw(GetOptions);
+
+my $K = 8;
+my ($max, $min_shingles) = (0.50, 16);
+GetOptions('max=f' => \$max, 'min-shingles=i' => \$min_shingles)
+    or die "usage: $0 [--max SCORE] [--min-shingles N] LIBC16.LIB CORPUS...\n";
+
+die "usage: $0 [--max SCORE] [--min-shingles N] LIBC16.LIB CORPUS...\n"
+    unless @ARGV >= 2;
+my ($ours, @corpus) = @ARGV;
+
+# Location types of a FIXUP subrecord and how many bytes each patches.
+my %LOCLEN = (0 => 1, 1 => 2, 2 => 2, 3 => 4, 4 => 1, 5 => 2,
+              9 => 4, 11 => 6, 13 => 4);
+
+# The members of an OMF library or object file, each as
+# { name => THEADR name, code => [ string of bytes with undef for fixed-up
+# positions, as array refs ] }.
+sub members ($path) {
+    open my $fh, '<:raw', $path or die "$path: $!\n";
+    local $/;
+    my $buf = <$fh>;
+    close $fh;
+
+    my @out;
+    my $pos = 0;
+    my $page = 0;
+    if (ord(substr($buf, 0, 1)) == 0xF0) {
+        $page = unpack('v', substr($buf, 1, 2)) + 3;
+        $pos = $page;
+    }
+    while ($pos < length $buf) {
+        my $type = ord(substr($buf, $pos, 1));
+        last if $type == 0xF1;
+        if ($type == 0 && $page) {               # padding
+            $pos = (int($pos / $page) + 1) * $page;
+            next;
+        }
+        my ($m, $end) = module($buf, $pos, $path);
+        push @out, $m;
+        $pos = $end;
+        $pos = (int(($pos + $page - 1) / $page)) * $page if $page;
+    }
+    return @out;
+}
+
+# Read an index field (1 or 2 bytes) at $$p in $s.
+sub index_field ($s, $p) {
+    my $b = ord(substr($s, $$p++, 1));
+    return $b & 0x80 ? (($b & 0x7F) << 8) | ord(substr($s, $$p++, 1)) : $b;
+}
+
+# One module starting at $pos; returns it and the offset after MODEND.
+sub module ($buf, $pos, $path) {
+    my (@lnames, @segclass, %segs, $name);
+    my ($last_seg, $last_off, $last_len);
+    my %masked;                                  # "seg:offset" => 1
+
+    while (1) {
+        die "$path: truncated at $pos\n" if $pos + 3 > length $buf;
+        my $type = ord(substr($buf, $pos, 1));
+        my $len = unpack('v', substr($buf, $pos + 1, 2));
+        my $body = substr($buf, $pos + 3, $len - 1);   # without checksum
+        $pos += 3 + $len;
+        my $big = $type & 1;
+        my $t = $type & ~1;
+        my $p = 0;
+
+        if ($t == 0x80) {                            # THEADR
+            $name = substr($body, 1, ord(substr($body, 0, 1)));
+        } elsif ($t == 0x96) {                       # LNAMES
+            while ($p < length $body) {
+                my $n = ord(substr($body, $p++, 1));
+                push @lnames, substr($body, $p, $n);
+                $p += $n;
+            }
+        } elsif ($t == 0x98) {                       # SEGDEF
+            my $acbp = ord(substr($body, $p++, 1));
+            $p += 3 if ($acbp >> 5) == 0;            # absolute frame
+            $p += $big ? 4 : 2;
+            index_field($body, \$p);                 # segment name
+            my $class = index_field($body, \$p);
+            push @segclass, $lnames[$class - 1] // '';
+        } elsif ($t == 0xA0) {                       # LEDATA
+            my $seg = index_field($body, \$p);
+            my $off = $big ? unpack('V', substr($body, $p, 4))
+                           : unpack('v', substr($body, $p, 2));
+            $p += $big ? 4 : 2;
+            my $data = substr($body, $p);
+            ($last_seg, $last_off, $last_len) = ($seg, $off, length $data);
+            if (($segclass[$seg - 1] // '') =~ /CODE$/i) {
+                my $bytes = $segs{$seg} //= [];
+                @$bytes[$off .. $off + length($data) - 1] = unpack('C*', $data);
+            }
+        } elsif ($t == 0x9C) {                       # FIXUPP
+            while ($p < length $body) {
+                my $b = ord(substr($body, $p++, 1));
+                if (!($b & 0x80)) {                  # THREAD
+                    index_field($body, \$p) if (($b >> 2) & 7) < 3;
+                    next;
+                }
+                my $locat = ($b << 8) | ord(substr($body, $p++, 1));
+                my $loc = ($locat >> 10) & 0xF;
+                my $at = $locat & 0x3FF;
+                my $fixdat = ord(substr($body, $p++, 1));
+                if (!($fixdat & 0x80)) {             # explicit frame
+                    index_field($body, \$p) if (($fixdat >> 4) & 7) < 3;
+                }
+                if (!($fixdat & 0x08)) {             # explicit target
+                    my $tm = $fixdat & 3;
+                    if ($tm < 3) { index_field($body, \$p) }
+                    else { $p += 2 }
+                }
+                $p += $big ? 4 : 2 unless $fixdat & 0x04;
+                my $n = $LOCLEN{$loc} // 2;
+                next unless defined $last_seg;
+                $masked{"$last_seg:" . ($last_off + $at + $_)} = 1 for 0 .. $n - 1;
+            }
+        } elsif ($t == 0x8A) {                       # MODEND
+            last;
+        }
+    }
+
+    my @code;
+    for my $seg (sort { $a <=> $b } keys %segs) {
+        my $bytes = $segs{$seg};
+        for my $i (0 .. $#$bytes) {
+            $bytes->[$i] = undef if $masked{"$seg:$i"};
+        }
+        push @code, $bytes;
+    }
+    return ({ name => $name // basename($path), code => \@code }, $pos);
+}
+
+# The set of shingles of a member, as a hash of K-byte strings.
+sub shingles ($m) {
+    my %set;
+    for my $bytes (@{ $m->{code} }) {
+        my $run = '';
+        for my $b (@$bytes, undef) {
+            if (!defined $b) {
+                $set{substr($run, $_, $K)} = 1 for 0 .. length($run) - $K;
+                $run = '';
+                next;
+            }
+            $run .= chr $b;
+        }
+    }
+    return \%set;
+}
+
+# Index files: shingle => list of member numbers. Also returns the
+# number of members and of code bytes.
+sub index_files (@files) {
+    my %where;
+    my ($nmembers, $nbytes) = (0, 0);
+    for my $file (@files) {
+        for my $m (members($file)) {
+            my $id = $nmembers++;
+            $nbytes += grep { defined } @$_ for @{ $m->{code} };
+            push @{ $where{$_} }, $id for keys %{ shingles($m) };
+        }
+    }
+    return (\%where, $nmembers, $nbytes);
+}
+
+# The shingle count of a member and its best and any scores in an index.
+sub score ($m, $where) {
+    my $set = shingles($m);
+    my $n = keys %$set;
+    my (%per, $any);
+    for my $s (keys %$set) {
+        my $ids = $where->{$s} or next;
+        $any++;
+        my %seen;
+        $per{$_}++ for grep { !$seen{$_}++ } @$ids;
+    }
+    my $best = 0;
+    for (values %per) { $best = $_ if $_ > $best }
+    return $n ? ($n, $best / $n, ($any // 0) / $n) : (0, 0, 0);
+}
+
+my @ours = members($ours);
+
+# Control: each judged member must be found whole in the library itself,
+# or the audit is not seeing the code it compares.
+my ($self) = index_files($ours);
+my $judged = 0;
+for my $m (@ours) {
+    my ($n, $best) = score($m, $self);
+    next if $n < $min_shingles;
+    $judged++;
+    die "control failed: $m->{name} is not found in its own library\n"
+        if $best < 1;
+}
+printf "control: %d of %d members judged, each found whole in %s\n",
+    $judged, scalar(@ours), basename($ours);
+
+my ($where, $nmembers, $nbytes) = index_files(@corpus);
+printf "corpus: %d members, %d code bytes, %d distinct %d-byte shingles\n",
+    $nmembers, $nbytes, scalar(keys %$where), $K;
+printf "%-12s %8s %6s %6s %s\n", 'member', 'shingles', 'best', 'any', 'verdict';
+
+my $fail = 0;
+my @rows;
+for my $m (@ours) {
+    my $name = basename($m->{name}) =~ s/\.[^.]*$//r;
+    my ($n, $b, $a) = score($m, $where);
+    my $verdict = $n < $min_shingles ? 'too short to judge'
+                : $b > $max ? 'FAIL' : 'ok';
+    $fail++ if $verdict eq 'FAIL';
+    push @rows, [$name, $n, $b, $a, $verdict];
+}
+printf "%-12s %8d %6.2f %6.2f %s\n", @$_ for sort { $a->[0] cmp $b->[0] } @rows;
+printf "%d member(s) over %.2f\n", $fail, $max;
+exit($fail ? 1 : 0);
