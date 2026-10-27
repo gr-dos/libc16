@@ -1,3 +1,4 @@
 # Each test program links only the members it calls.
 
 dos: bdos cstart dosfind doserr errno findfrst findnext fullpath getenv int86 int86x intdos intdosx kbhit memcpy memset segread strcmp
+dosfile: cstart dosclose doscreat doserr dosopen dosread doswrite errno fmemcpy getfattr getvect harderr int86 setfattr setvect

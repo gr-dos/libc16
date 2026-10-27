@@ -4,6 +4,8 @@
 #ifndef _LIBC16_DOS_H
 #define _LIBC16_DOS_H
 
+#include <_libc16.h>
+
 /* File attributes */
 #define _A_NORMAL 0x00
 #define _A_RDONLY 0x01
@@ -46,11 +48,32 @@ struct SREGS {
 #define FP_SEG(fp) (((unsigned *)&(fp))[1])
 #define FP_OFF(fp) (((unsigned *)&(fp))[0])
 
+/* A far pointer to segment seg, offset off */
+#define MK_FP(seg, off) \
+    ((void __far *)(((unsigned long)(unsigned)(seg) << 16) | (unsigned)(off)))
+
+/* What a _harderr handler returns: DOS's INT 24h actions */
+#define _HARDERR_IGNORE 0
+#define _HARDERR_RETRY  1
+#define _HARDERR_ABORT  2
+#define _HARDERR_FAIL   3
+
 /* PSP segment of the program */
 extern unsigned __cdecl _psp;
 
+unsigned __cdecl _dos_close(int handle);
+unsigned __cdecl _dos_creat(const char *path, unsigned attr, int *handle);
 unsigned __cdecl _dos_findfirst(const char *path, unsigned attr, struct find_t *f);
 unsigned __cdecl _dos_findnext(struct find_t *f);
+unsigned __cdecl _dos_getfileattr(const char *path, unsigned *attr);
+unsigned __cdecl _dos_open(const char *path, unsigned mode, int *handle);
+unsigned __cdecl _dos_read(int handle, void __far *buf, unsigned count, unsigned *nread);
+unsigned __cdecl _dos_setfileattr(const char *path, unsigned attr);
+unsigned __cdecl _dos_write(int handle, const void __far *buf, unsigned count, unsigned *nwritten);
+void (__interrupt __far * __cdecl _dos_getvect(unsigned intno))();
+void     __cdecl _dos_setvect(unsigned intno, void (__interrupt __far *handler)());
+void     __cdecl _harderr(int (__cdecl __far *handler)(unsigned deverror, unsigned errcode,
+                                                       unsigned __far *devhdr));
 int      __cdecl int86(int intno, union REGS *in, union REGS *out);
 int      __cdecl int86x(int intno, union REGS *in, union REGS *out, struct SREGS *segs);
 int      __cdecl intdos(union REGS *in, union REGS *out);
