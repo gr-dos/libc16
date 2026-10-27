@@ -3,7 +3,10 @@
 #ifndef _LIBC16_IO_H
 #define _LIBC16_IO_H
 
+#include <_libc16.h>
+
 int  __cdecl access(const char *path, int mode);
+int  __cdecl chmod(const char *path, int pmode);
 int  __cdecl chsize(int fd, long size);
 int  __cdecl close(int fd);
 long __cdecl filelength(int fd);
