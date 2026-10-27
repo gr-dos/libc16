@@ -1,0 +1,3 @@
+# Each test program links only the ctype members it calls.
+
+ctype: cstart isalnum isalpha iscntrl isdigit isgraph islower isprint ispunct isspace isupper isxdigit tolower toupper
