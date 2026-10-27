@@ -16,7 +16,13 @@ static const unsigned long values[] = {
 static const int radixes[] = { 2, 3, 7, 8, 10, 16, 36 };
 static const int bad_radixes[] = { -16, -1, 0, 1, 37, 100 };
 
+/* With far data, buf is outside DGROUP, so DS is not SS while the
+ * helper writes it (docs/ABI.md, "Memory models"). */
+#if defined(__COMPACT__) || defined(__LARGE__)
+static char __far buf[40];
+#else
 static char buf[40];
+#endif
 static int failed;
 
 static void test(unsigned i, int radix)

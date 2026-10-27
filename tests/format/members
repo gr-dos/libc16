@@ -1,5 +1,8 @@
 # The libc16 members each formatting test program links
-# (tests/check-members): each helper alone, with no 32-bit divide.
+# (tests/check-members): each function alone, with no 32-bit helper.
+# strtoul links errno, which it sets; atoi does not, so it cannot change it.
 
-ultoa: cstart ultoa
-ltoa:  cstart ltoa
+ultoa:   cstart ultoa
+ltoa:    cstart ltoa
+strtoul: cstart errno strtoul
+atoi:    cstart atoi
