@@ -46,7 +46,7 @@ That includes unused file I/O, argument processing, formatting, allocation, arit
 - Primary static archive: **`LIBC16.LIB`**, compatible with the selected Open Watcom linker/librarian tooling.
 - Repository naming: the `gr-dos` organization eliminates the old `dos-` repository prefix (for example, `gr-dos/df16`, not `gr-dos/dos-df16`).
 - Build tools initially: Open Watcom (`wcc`, `wlink`, `wlib`), JWasm (decision 4), GNU Make, and Linux-hosted testing/emulators.
-- Distribution: versioned releases with binaries, headers, checksums, license/provenance documentation, and reproducible source/build instructions.
+- Distribution: versioned releases with binaries, headers, checksums, license/provenance documentation, and reproducible source/build instructions. Concretely: `VERSION` holds a DOS-style version (`0.01`, `0.02`, ..., not SemVer); merging a PR that changes it tags the merge commit `v<VERSION>` and publishes `libc16-<VERSION>.zip` and `libc16-<VERSION>.zip.sha256`. The archive holds one `libc16-<VERSION>/` directory with `VERSION`, `LICENSE`, `README.md`, `BUILD.txt` (source revision, pinned toolchain, flags, rebuild steps), `lib/LIBC16.LIB`, `include/`, `docs/` and `tools/fetch-watcom`; no compiler. A checkout's `make` stages the same layout in `build/stage`.
 
 Illustrative structure (not a commitment to file-level layout):
 
@@ -195,7 +195,7 @@ Consumers use both:
 - **Pinned-release acquisition (default):** fetch a versioned `libc16` release artifact and verify its checksum; never use an unpinned moving branch for releases or CI.
 - **Local override:** an explicit variable such as `LIBC16_ROOT` points at an installed or in-development build, supporting fast local iteration and A/B CI comparisons.
 
-The exact variable names and Make targets belong to the initial integration-contract design; they must be common and documented. Keep the build entirely possible under Linux and preserve consumer independence. Avoid mandatory Git submodules.
+The exact variable names and Make targets belong to the initial integration-contract design; they must be common and documented. Keep the build entirely possible under Linux and preserve consumer independence. Avoid mandatory Git submodules. Concretely: each consumer keeps a copy of `consumers/fetch-libc16`, which pins a release by version and SHA-256 and checks the archive before unpacking it to `build/libc16`; `LIBC16_ROOT` names an unpacked release or a checkout (whose `build/stage` is used), and the libc16 tree's `tools/fetch-watcom` supplies the matching Open Watcom snapshot (`docs/CONSUMERS.md`, "Using libc16").
 
 Use fixed toolchain versions and the **same consumer commit** when comparing two libc16 versions. Record compiler/linker/assembler versions, build flags, library revisions, and consumer commit hashes alongside measurements.
 

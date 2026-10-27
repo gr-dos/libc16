@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Print BUILD.txt for the staged tree: the version, the source revision,
+# the pinned tools, the flags and how to rebuild it.
+#
+# usage: scripts/build-info WCFLAGS JWFLAGS
+
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+wcflags=$1
+jwflags=$2
+
+pin() { sed -n "s/^$2=//p" "$root/scripts/$1"; }
+
+version=$(cat "$root/VERSION")
+rev=$(git -C "$root" rev-parse HEAD 2>/dev/null || echo unknown)
+if [ "$rev" != unknown ] && [ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]; then
+  rev="$rev, with uncommitted changes"
+fi
+patches=$(cat "$root"/patches/jwasm/*.patch | sha256sum | cut -c1-12)
+
+cat <<EOF
+libc16 $version
+
+Source:   https://github.com/gr-dos/libc16, revision $rev
+Target:   DOS real-mode .EXE, small memory model, 8086 instructions only
+
+Toolchain (pinned; the compiler is not included):
+  Open Watcom  open-watcom-v2 release $(pin fetch-watcom release),
+               asset $(pin fetch-watcom asset),
+               sha256 $(pin fetch-watcom sha256)
+               (tools/fetch-watcom downloads and checks it)
+  JWasm        $(pin fetch-jwasm version), commit $(pin fetch-jwasm commit),
+               with the patches in patches/jwasm (set $patches)
+
+Library build flags:
+  wcc    $wcflags
+  jwasm  $jwflags
+  wlib   -q -n -b, one member per source file in crt/
+
+Consumer flags (docs/ABI.md, "Consumer build"):
+  wcc    -zl -zld -x -ms -0 -s -bt=dos -I<this directory>/include ...
+  wlink  option nodefaultlibs format dos ... library <this directory>/lib/LIBC16.LIB
+  Compile with the Open Watcom snapshot above and its default register
+  calling convention; every public function is declared __cdecl.
+
+To rebuild from source (Linux, with Perl 5.42, a C compiler, make, git,
+curl, xz and, for the tests, dosbox-x):
+  git clone https://github.com/gr-dos/libc16.git
+  cd libc16
+  git checkout v$version
+  make && make test && make dist
+wcc records the absolute path of each source file in its object, so a
+library built in another directory differs in those names only.
+EOF

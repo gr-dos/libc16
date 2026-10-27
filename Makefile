@@ -1,15 +1,24 @@
 # libc16 Linux build.
 #
-#   make          build the static library build/LIBC16.LIB
+#   make          build the static library build/LIBC16.LIB and stage it,
+#                 with the headers, in build/stage (the release layout)
 #   make test     build the test programs against it and run the checks in
 #                 tests/ (ABI, link maps, 8086 instructions, selective linking)
 #                 and the programs under DOSBox-X
-#   make clean    remove build/obj, build/tests and build/LIBC16.LIB
-#                 (fetched tools in build/tools are kept)
+#   make audit    compare the library's code with Open Watcom's runtime
+#                 library and print only scores (decision 6)
+#   make dist     build/dist/libc16-VERSION.zip and its .sha256, from the
+#                 staged tree and the audit, and check the package
+#   make install PREFIX=DIR
+#                 copy the staged tree to DIR
+#   make clean    remove build/obj, build/tests, build/stage, build/dist
+#                 and build/LIBC16.LIB (fetched tools in build/tools are kept)
 #
 # Needs Perl 5.42 as `perl` on PATH, a C compiler and make (to build JWasm),
 # git, curl and xz, and dosbox-x for the tests. JWasm and Open Watcom are
 # fetched into build/tools.
+
+VERSION := $(shell cat VERSION)
 
 BUILD := build
 OBJ   := $(BUILD)/obj
@@ -27,7 +36,7 @@ JWFLAGS := -q
 SOURCES := $(wildcard crt/*.asm crt/*.c)
 MEMBERS := $(patsubst %,$(OBJ)/%.obj,$(basename $(notdir $(SOURCES))))
 
-all: $(LIB)
+all: $(LIB) stage
 
 $(LIB): $(MEMBERS)
 	rm -f $@
@@ -134,8 +143,55 @@ $(TOOLS): scripts/fetch-jwasm scripts/fetch-watcom $(wildcard patches/jwasm/*.pa
 	jwasm=$$(scripts/fetch-jwasm) && watcom=$$(scripts/fetch-watcom) \
 	  && printf 'JWASM=%s\nWATCOM=%s\nexport WATCOM\n' "$$jwasm" "$$watcom" > $@
 
-clean:
-	rm -rf $(OBJ) $(BUILD)/tests $(LIB)
+# The similarity audit (decision 6) against the small-model DOS runtime
+# library, the math library and the loose DOS objects of the pinned Open
+# Watcom snapshot. Only scores are printed.
+AUDIT := $(BUILD)/audit.txt
 
-.PHONY: all test clean
+audit: $(LIB) scripts/similarity-audit $(TOOLS)
+	. ./$(TOOLS) && scripts/similarity-audit $(LIB) $$WATCOM/lib286/dos/clibs.lib \
+	  $$WATCOM/lib286/maths.lib $$WATCOM/lib286/dos/*.obj > $(AUDIT).tmp \
+	  || { cat $(AUDIT).tmp; exit 1; }
+	mv $(AUDIT).tmp $(AUDIT)
+	cat $(AUDIT)
+
+# The release layout (README.md, "Using a release"), the same for a
+# release ZIP and a checkout: consumers point LIBC16_ROOT at either.
+STAGE := $(BUILD)/stage
+DOCS  := docs/ABI.md docs/CONSUMERS.md docs/DESIGN.md docs/LICENSE-PROVENANCE.md \
+	$(wildcard docs/spec/*.md)
+HDRS  := $(wildcard include/*.h include/sys/*.h)
+
+stage: $(LIB) $(HDRS) $(DOCS) VERSION LICENSE README.md scripts/fetch-watcom \
+		scripts/build-info scripts/fetch-jwasm Makefile
+	rm -rf $(STAGE).tmp
+	mkdir -p $(STAGE).tmp/lib $(STAGE).tmp/tools
+	cp VERSION LICENSE README.md $(STAGE).tmp/
+	cp $(LIB) $(STAGE).tmp/lib/
+	cp -R include $(STAGE).tmp/
+	mkdir -p $(STAGE).tmp/docs/spec
+	for f in $(DOCS); do cp $$f $(STAGE).tmp/$$f; done
+	cp scripts/fetch-watcom $(STAGE).tmp/tools/
+	scripts/build-info '$(WCFLAGS)' '$(JWFLAGS)' > $(STAGE).tmp/BUILD.txt
+	rm -rf $(STAGE)
+	mv $(STAGE).tmp $(STAGE)
+
+install: stage
+	@test -n "$(PREFIX)" || { echo 'usage: make install PREFIX=DIR' >&2; exit 1; }
+	mkdir -p $(PREFIX)
+	cp -R $(STAGE)/. $(PREFIX)/
+
+DIST := $(BUILD)/dist
+ZIP  := $(DIST)/libc16-$(VERSION).zip
+
+dist: stage audit scripts/make-dist scripts/check-dist
+	mkdir -p $(DIST)
+	scripts/make-dist $(STAGE) $(AUDIT) libc16-$(VERSION) $(ZIP)
+	cd $(DIST) && sha256sum libc16-$(VERSION).zip > libc16-$(VERSION).zip.sha256
+	scripts/check-dist $(ZIP) $(VERSION)
+
+clean:
+	rm -rf $(OBJ) $(BUILD)/tests $(LIB) $(STAGE) $(DIST) $(AUDIT)
+
+.PHONY: all test audit stage install dist clean
 .DELETE_ON_ERROR:

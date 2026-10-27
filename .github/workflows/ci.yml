@@ -1,5 +1,7 @@
 # Build LIBC16.LIB and run make test: the ABI, link-map, 8086 and selective
 # linking checks and the test programs under DOSBox-X (decisions 5 and 7).
+# Then make dist: the similarity audit (decision 6) and the release ZIP,
+# checked by scripts/check-dist, as the release workflow builds them.
 # Actions are pinned to the same commits as GR-DOS's CI.
 
 name: ci
@@ -47,6 +49,9 @@ jobs:
       - name: Test
         run: make test 2>&1 | tee build/test.log
 
+      - name: Audit and package
+        run: make dist 2>&1 | tee build/dist.log
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -55,5 +60,8 @@ jobs:
             build/LIBC16.LIB
             build/make.log
             build/test.log
+            build/dist.log
+            build/audit.txt
+            build/dist/
             build/tests/
           if-no-files-found: warn
