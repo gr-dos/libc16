@@ -67,7 +67,7 @@ SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$
 SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
 TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj \
 	$(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj \
-	$(TEST)/io/seekfail.obj \
+	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj \
 	$(TEST)/support/testio.obj \
 	$(SUITE_EXES:.EXE=.obj)
 
@@ -109,6 +109,9 @@ $(OWNENT): $(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj $(TEST)/suppo
 
 # io also links a hook that makes chosen seeks fail.
 $(TEST)/io/io.EXE: $(TEST)/io/seekfail.obj
+
+# dos also links a helper that calls int86x with a chosen ES.
+$(TEST)/dos/dos.EXE: $(TEST)/dos/esafter.obj
 
 # bigstk runs heap.c's checks with a larger stack.
 $(TEST)/heap/bigstk.obj: tests/heap/heap.c

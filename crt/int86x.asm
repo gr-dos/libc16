@@ -19,6 +19,7 @@ _int86x proc    near
         push    si
         push    di
         push    ds                      ; [bp-6]: DGROUP
+        push    es                      ; the caller's, restored at the end
         mov     al, [bp+4]
         mov     cs:intnum, al
         jmp     short load              ; the store above may be prefetched
@@ -56,6 +57,7 @@ intnum  db      0
         mov     [bx], es
         mov     [bx+6], cx
         cld
+        pop     es
         pop     ds
         pop     di
         pop     si

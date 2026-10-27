@@ -34,6 +34,9 @@ static unsigned get_ds(void);
 static unsigned get_es(void);
 #pragma aux get_es = "mov ax, es" value [ax] modify exact [ax];
 
+unsigned __cdecl es_after_int86x(unsigned es, int intno, union REGS *in,
+                                 union REGS *out, struct SREGS *segs);
+
 static void make_dir(const char *path);
 #pragma aux make_dir = \
     "mov ah, 39h" \
@@ -162,6 +165,17 @@ static void segments(void)
     CHECK(intdosx(&in, &in, &segs) == in.x.ax && in.x.bx == 0x5678 && segs.es == 0x1234
           && in.x.cflag == 0 && segs.ds == get_ds());
     CHECK(get_dta() == 0x12345678UL);
+
+    /* int86x returns the interrupt's ES in segs->es and restores the caller's. */
+    in.h.ah = 0x2f;
+    segs.es = 0x4321;
+    segs.ds = get_ds();
+    CHECK(es_after_int86x(0x2345, 0x21, &in, &out, &segs) == 0x2345
+          && out.x.bx == 0x5678 && segs.es == 0x1234 && segs.ds == get_ds());
+    in.h.ah = 0x19;
+    segs.es = 0x4321;
+    CHECK(es_after_int86x(0x2345, 0x21, &in, &out, &segs) == 0x2345
+          && out.h.al == 2 && segs.es == 0x4321 && segs.ds == get_ds());
     set_dta(dta);
     in.h.ah = 0x3d;
     in.h.al = 0;
