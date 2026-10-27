@@ -59,12 +59,15 @@ TEST      := $(BUILD)/tests
 TCFLAGS   := -q -zq -zl -zld -x -ms -0 -os -s -bt=dos -wx -we -Iinclude -Itests/support
 HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
 SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
-STARTUP   := status dirty bss memory args stktop nullstr
+STARTUP   := status dirty bss memory args stktop nullstr exitst
+# ownent has its own entry point, ownstart, instead of the core startup.
+OWNENT    := $(TEST)/startup/ownent.EXE $(TEST)/plus/ownent.EXE
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
 SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$(SUITES))))
 SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
 TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj \
-	$(TEST)/io/seekfail.obj \
+	$(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj \
+	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj \
 	$(TEST)/support/testio.obj \
 	$(SUITE_EXES:.EXE=.obj)
 
@@ -102,29 +105,33 @@ $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/nullstr.EXE): $(TEST)/startup/codepad.obj
 
 $(SUITE_EXES): $(TEST)/%.EXE: $(TEST)/%.obj $(TEST)/support/testio.obj
+$(OWNENT): $(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj $(TEST)/support/testio.obj
 
 # io also links a hook that makes chosen seeks fail.
 $(TEST)/io/io.EXE: $(TEST)/io/seekfail.obj
+
+# dos also links a helper that calls int86x with a chosen ES.
+$(TEST)/dos/dos.EXE: $(TEST)/dos/esafter.obj
 
 # bigstk runs heap.c's checks with a larger stack.
 $(TEST)/heap/bigstk.obj: tests/heap/heap.c
 $(TEST)/heap/bigstk.EXE: LDOPTS := option stack=8192
 
-$(TEST_EXES) $(SUITE_EXES): LINKLIB := $(LIB)
-$(PLUS_EXES): LINKLIB := $(PLUS_LIB)
-$(TEST_EXES) $(SUITE_EXES): $(LIB)
-$(PLUS_EXES): $(PLUS_LIB)
+$(TEST_EXES) $(SUITE_EXES) $(TEST)/startup/ownent.EXE: LINKLIB := $(LIB)
+$(PLUS_EXES) $(PLUS)/ownent.EXE: LINKLIB := $(PLUS_LIB)
+$(TEST_EXES) $(SUITE_EXES) $(TEST)/startup/ownent.EXE: $(LIB)
+$(PLUS_EXES) $(PLUS)/ownent.EXE: $(PLUS_LIB)
 
 # No default libraries: the map must show only the objects and the library
 # (scripts/check-map), and X.MEMBERS lists the library members linked.
-$(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES): scripts/check-map
+$(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES) $(OWNENT): scripts/check-map
 	mkdir -p $(@D)
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && wlink option quiet, nodefaultlibs, \
 	  map=$(@:.EXE=.MAP) $(LDOPTS) format dos name $@ $(foreach o,$(filter %.obj,$^),file $(o)) \
 	  library $(LINKLIB)
 	scripts/check-map $(@:.EXE=.MAP) $(LINKLIB) $(filter %.obj,$^) > $(@:.EXE=.MEMBERS)
 
-test: $(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES)
+test: $(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES) $(OWNENT)
 	. ./$(TOOLS) && scripts/check-8086 $(MEMBERS) $(TEST_OBJS) $(PLUS)/unused.obj
 	. ./$(TOOLS) && PATH=$$WATCOM/binl64:$$PATH && tests/check-abi $(TEST)/abi $(TCFLAGS)
 	tests/check-members $(TEST)/startup tests/startup/members

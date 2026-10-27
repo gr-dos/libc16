@@ -19,6 +19,7 @@ typedef unsigned size_t;
  * directory and a separator and 8.3 name. */
 #define _MAX_PATH 80
 
+void   __cdecl exit(int status);
 void   __cdecl free(void *p);
 char * __cdecl _fullpath(char *buf, const char *path, size_t size);
 char * __cdecl getenv(const char *name);

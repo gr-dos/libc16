@@ -55,6 +55,8 @@ int main(void)
     CHECK(close(99) == -1 && errno == EBADF);
     CHECK(read(99, buf, 1) == -1 && errno == EBADF);
     CHECK(write(99, "x", 1) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(filelength(99) == -1L && errno == EBADF);
     /* handles outside the mode table, negative ones too */
     errno = 0;
     CHECK(read(-1, buf, 1) == -1 && errno == EBADF);
@@ -95,6 +97,7 @@ int main(void)
     fd = open("CR.TXT", O_RDONLY | O_TEXT);
     CHECK(read(fd, buf, 2) == 2 && memcmp(buf, "x\n", 2) == 0);
     CHECK(read(fd, buf, 2) == 2 && memcmp(buf, "y\r", 2) == 0);
+    CHECK(filelength(fd) == 7);         /* keeps the byte read past "y\r" */
     CHECK(lseek(fd, 0L, SEEK_CUR) == 5);
     CHECK(read(fd, buf, 2) == 2 && memcmp(buf, "z\r", 2) == 0);
     CHECK(read(fd, buf, 2) == 0);

@@ -1,5 +1,6 @@
 /* DOS interface, environment and paths (docs/spec/dos.md) */
 
+#include <conio.h>
 #include <dos.h>
 #include <errno.h>
 #include <stddef.h>
@@ -14,6 +15,27 @@ static unsigned long get_dta(void);
     "mov dx, es" \
     "mov ax, bx" \
     value [dx ax] modify exact [ax bx dx es];
+
+static void set_dta(unsigned long dta);
+#pragma aux set_dta = \
+    "push ds" \
+    "mov ds, cx" \
+    "mov ah, 1ah" \
+    "int 21h" \
+    "pop ds" \
+    parm [cx dx] modify exact [ax];
+
+static unsigned get_cs(void);
+#pragma aux get_cs = "mov ax, cs" value [ax] modify exact [ax];
+
+static unsigned get_ds(void);
+#pragma aux get_ds = "mov ax, ds" value [ax] modify exact [ax];
+
+static unsigned get_es(void);
+#pragma aux get_es = "mov ax, es" value [ax] modify exact [ax];
+
+unsigned __cdecl es_after_int86x(unsigned es, int intno, union REGS *in,
+                                 union REGS *out, struct SREGS *segs);
 
 static void make_dir(const char *path);
 #pragma aux make_dir = \
@@ -114,10 +136,83 @@ static void paths(void)
     CHECK(_fullpath(buf, "abc", 7) == buf && strcmp(buf, "C:\\abc") == 0);
 }
 
+static void segments(void)
+{
+    union REGS in, out;
+    struct SREGS segs;
+    unsigned long dta = get_dta();
+    char buf[43];
+
+    CHECK(sizeof segs == 8 && offsetof(struct SREGS, es) == 0
+          && offsetof(struct SREGS, cs) == 2 && offsetof(struct SREGS, ss) == 4
+          && offsetof(struct SREGS, ds) == 6);
+    memset(&segs, 0, sizeof segs);
+    segread(&segs);
+    CHECK(segs.cs == get_cs() && segs.ds == get_ds() && segs.ss == get_ds()
+          && segs.es == get_es());
+
+    /* Set the disk transfer area from DS:DX, then read it back in ES:BX. */
+    memset(&in, 0, sizeof in);
+    in.h.ah = 0x1a;
+    in.x.dx = 0x5678;
+    segs.ds = 0x1234;
+    segs.es = 0;
+    segs.cs = segs.ss = 0xabcd;
+    CHECK(int86x(0x21, &in, &out, &segs) == out.x.ax && out.x.cflag == 0
+          && segs.ds == 0x1234 && segs.cs == 0xabcd && segs.ss == 0xabcd);
+    in.h.ah = 0x2f;
+    segs.ds = get_ds();
+    CHECK(intdosx(&in, &in, &segs) == in.x.ax && in.x.bx == 0x5678 && segs.es == 0x1234
+          && in.x.cflag == 0 && segs.ds == get_ds());
+    CHECK(get_dta() == 0x12345678UL);
+
+    /* int86x returns the interrupt's ES in segs->es and restores the caller's. */
+    in.h.ah = 0x2f;
+    segs.es = 0x4321;
+    segs.ds = get_ds();
+    CHECK(es_after_int86x(0x2345, 0x21, &in, &out, &segs) == 0x2345
+          && out.x.bx == 0x5678 && segs.es == 0x1234 && segs.ds == get_ds());
+    in.h.ah = 0x19;
+    segs.es = 0x4321;
+    CHECK(es_after_int86x(0x2345, 0x21, &in, &out, &segs) == 0x2345
+          && out.h.al == 2 && segs.es == 0x4321 && segs.ds == get_ds());
+    set_dta(dta);
+    in.h.ah = 0x3d;
+    in.h.al = 0;
+    in.x.dx = (unsigned)"NOSUCH.X";
+    CHECK(int86x(0x21, &in, &out, &segs) == 2 && out.x.ax == 2 && out.x.cflag != 0);
+    CHECK(intdos(&in, &out) == 2 && out.x.ax == 2 && out.x.cflag != 0);
+    in.h.ah = 0x19;
+    CHECK(intdos(&in, &out) == out.x.ax && out.h.al == 2 && out.x.cflag == 0);
+
+    CHECK((bdos(0x19, 0x1234, 0x5678) & 0xff) == 2);
+    bdos(0x1a, (unsigned)buf, 0);
+    CHECK(get_dta() == ((unsigned long)get_ds() << 16 | (unsigned)buf));
+    set_dta(dta);
+    CHECK(kbhit() == 0);
+}
+
+static void far_pointers(void)
+{
+    char __far *p = 0;
+    char __far *q;
+
+    FP_SEG(p) = 0x1234;
+    FP_OFF(p) = 0x5678;
+    CHECK((unsigned long)p == 0x12345678UL && FP_SEG(p) == 0x1234 && FP_OFF(p) == 0x5678);
+    FP_SEG(p) += 0x10;
+    FP_OFF(p)++;
+    CHECK((unsigned long)p == 0x12445679UL);
+    q = p;
+    CHECK(FP_SEG(q) == 0x1244 && FP_OFF(q) == 0x5679);
+}
+
 int main(void)
 {
     finds();
     interrupts();
+    segments();
+    far_pointers();
     environment();
     paths();
     return done();

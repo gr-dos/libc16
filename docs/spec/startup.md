@@ -1,6 +1,6 @@
-# Spec: startup and argv
+# Spec: startup, argv and exit
 
-**Members:** `cstart` (core startup), `argv` (hook), `args` (command-tail parser)  
+**Members:** `cstart` (core startup), `argv` (hook), `args` (command-tail parser), `exit`  
 **Minimum DOS:** 2.0  
 **Tests:** `tests/startup` (run by `tests/run-dos`, `tests/check-members`, `tests/startup/check-memory`, `tests/startup/check-null`), `tests/check-abi`, `tests/check-selective`
 
@@ -12,7 +12,8 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - Splitting the command tail: Microsoft's documentation of how Microsoft C parses command-line arguments.
 - Symbols the compiler references and the register convention of `main`: call-site experiments in `tests/abi` (`docs/ABI.md`).
 - `_edata` and `_end`: defined by wlink, observed by linking a module that references them and reading the map.
-- C standard (C99 5.1.2.2.1, "Program startup", and 5.1.2.2.3, "Program termination"): `argv[argc]` is a null pointer, the strings are modifiable, `argv[0]` is `""` when the program name is not available, and returning from the initial call to `main` is equivalent to calling `exit` with its value.
+- C standard (C99 5.1.2.2.1, "Program startup", and 5.1.2.2.3, "Program termination"): `argv[argc]` is a null pointer, the strings are modifiable, `argv[0]` is `""` when the program name is not available, and returning from the initial call to `main` is equivalent to calling `exit` with its value. C99 7.20.4.3 (`exit`).
+- A program with its own entry point: GR-DOS's ATTRIB, whose `ATTRIBA.ASM` (MS-DOS 4.00 source) sets up `DGROUP` and calls C itself.
 
 ## Core startup (`cstart`)
 
@@ -63,3 +64,23 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - the strings are in `DGROUP` (near pointers) and modifiable; the arrays hold the most arguments a 127-byte tail can produce (64), with no heap.
 
 The expected outputs in `tests/startup/*.expect` are part of this spec.
+
+## Termination (`exit`)
+
+**Header:** `<stdlib.h>`, `void exit(int status)` (`__cdecl`; symbol `_exit`).
+
+**Must:** terminate the program with INT 21h function 4Ch, `AL` = the low byte of `status`. It does not return. libc16 has no `atexit`, and its output streams are unbuffered (`docs/spec/stdio.md`), so there is nothing to call or flush first; DOS closes the program's handles.
+
+**References** nothing else: a program that calls `exit` links only `exit` for it, with or without the core startup.
+
+## Programs without the startup
+
+A program may have its own entry point instead of `cstart`. It defines no `main`, so nothing references `_cstart_`. Before it calls any C code, its entry must:
+
+- set `DS` and `SS` to `DGROUP`, with `SP` in `DGROUP` (small model: near pointers reach the stack);
+- zero every byte from `_edata` to `_end`;
+- clear the direction flag;
+
+and it must terminate the program itself, or through `exit`. It should also keep offset 0 of `DGROUP` free of C objects (see "Null pointer"), for example with a 2-byte segment of class `BEGDATA`.
+
+Such a program may use every member that references no symbol `cstart` defines (`__psp`, `___libc16_stack_top`, `___libc16_argc`, `___libc16_argv`) and is not an init routine: the string functions, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `_dos_findfirst`, `_dos_findnext`, `_fullpath`, the low-level I/O functions of `docs/spec/io.md`, the stdio functions, `libc16_ultoa`, `libc16_ltoa`, the compiler support routines and `exit`. The heap (`malloc`, `free`, `strdup`), `getenv` and `_psp` link `cstart`, so a program with its own entry must not use them. `tests/startup/ownent` is such a program; `tests/check-members` checks that it links no `cstart`.
