@@ -11,9 +11,11 @@ Inventory of what each candidate consumer needs from a C runtime (DESIGN.md §7�
 | `gr-dos/md5sum16` | `9a2ac49b9ea7` | small | `open`, `read`, `close`, `access`, `setmode`, `fopen`, `fclose`, `fgetc`, `fgets`, `fputc`, `fputs`, `fprintf`, `printf`, `_dos_findfirst`, `_dos_findnext`, `memcmp`, `memcpy`, `memset`, `strchr`, `strcmp`, `strcpy`, `strlen`, `strlwr`, `strncmp`, `strerror`, `errno` |
 | `gr-dos/which16` | `8358fa1ccfe9` | small | `getenv`, `_fullpath`, `_dos_findfirst`, `fprintf`, `printf`, `sprintf`, `memcpy`, `strcat`, `strchr`, `strcmp`, `strdup`, `stricmp`, `strlen`, `strlwr`, `strrchr` |
 | `gr-dos/tar16` | `ac2c8c4e928e` | **large** | about 45 functions, including `malloc`, `calloc`, `free`, `stat`, `utime`, `localtime`, `strftime`, `tzset`, `mkdir`, `chmod` |
+| `gr-dos/gr-dos` ATTRIB | `5b94dff6` | small, own entry (ATTRIBA) | `bdos`, `close`, `filelength`, `int86`, `intdos`, `intdosx`, `segread`, `strcat`, `strcmp`, `strcpy`, `strlen`; no `_cstart_` |
+| `gr-dos/gr-dos` MEM | `5b94dff6` | small | `exit`, `int86`, `int86x`, `intdos`, `intdosx`, `kbhit`, `segread`, `strcpy`, `_psp` |
 | `tico-edit/tico16` | `5769a9a6bc9d` | **compact** | `malloc`, `realloc`, `free`, `int86`, `intdosx`, `segread`, `_dos_*` file and vector functions, `_harderr`, `_fmemcpy`, `memmove`, `sprintf` and others |
 
-Every program also references `_cstart_`, `__argc` (all of them take `argc`/`argv`) and `_small_code_` or `_big_code_`, a model marker that `-zl` leaves out.
+GR-DOS's ATTRIB and MEM are Microsoft's MS-DOS 4.00 sources (Microsoft C 5.1), as GR-DOS builds them with Open Watcom C, listed from the call sites rather than an Open Watcom build. Every other program also references `_cstart_`, `__argc` (all of them take `argc`/`argv`) and `_small_code_` or `_big_code_`, a model marker that `-zl` leaves out.
 
 ## Observations
 
@@ -50,6 +52,13 @@ Each small-model consumer has a PR that links it with libc16 instead of Open Wat
 | `gr-dos/which16` | [#8](https://github.com/gr-dos/which16/pull/8) | 13,220 → 4,252 | 2,530 bytes, updated |
 | `gr-dos/tar16` | — | | pending: large model |
 | `tico-edit/tico16` | — | | pending: compact model |
+
+GR-DOS (M3, DESIGN.md §8) replaces its own runtime, `compat/crt`, with libc16 0.02 for ATTRIB and MEM: [gr-dos/gr-dos#9](https://github.com/gr-dos/gr-dos/pull/9). ATTRIB keeps Microsoft's entry code, ATTRIBA, and links no libc16 startup.
+
+| Program | `compat/crt` → libc16 | 360 KB disk clusters | Own memory (`MEM /PROGRAM`) |
+|---|---|---|---|
+| `ATTRIB.EXE` | 19,446 → 19,367 bytes | 19 → 19 | |
+| `MEM.EXE` | 11,986 → 12,034 bytes | 12 → 12 | 3A40h → 3A70h bytes |
 
 Where a consumer has an assembly version that its tests compare byte for byte with the C program, the assembly had copied Open Watcom's runtime behaviour. It now follows libc16's specs instead: Microsoft's argument splitting, libc16's `errno` mapping and messages, unbuffered streams, `_fullpath` and `getenv` limits.
 

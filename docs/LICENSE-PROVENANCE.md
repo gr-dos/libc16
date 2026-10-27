@@ -25,6 +25,7 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md ย
 | `cstart` | `crt/cstart.asm` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `argv` | `crt/argv.asm` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `args` | `crt/args.c` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
+| `exit` | `crt/exit.asm` | `docs/spec/startup.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `i4m` | `crt/i4m.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `u4d` | `crt/u4d.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
 | `i4d` | `crt/i4d.asm` | `docs/spec/arith.md` | Claude (Opus 5.5), separate session; human review pending | Written from the spec |
@@ -42,11 +43,11 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md ย
 | `errno`, `memcmp`, `memcpy`, `memset`, `strcat`, `strchr`, `strcmp`, `strcpy`, `strdup`, `strerror`, `stricmp`, `strlen`, `strlwr`, `strncmp`, `strrchr` | `crt/*.c` | `docs/spec/string.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `fdtab`, `doserr`, `open`, `close`, `read`, `write`, `lseek`, `filelen`, `chsize`, `access`, `setmode` | `crt/*.c`, `crt/io16.h` | `docs/spec/io.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `stdin`, `stdout`, `stderr`, `fopen`, `fclose`, `fflush`, `fgetc`, `fgets`, `fputc`, `fputs`, `ungetc`, `feof`, `ferror`, `getc`, `putc`, `putchar` | `crt/*.c`, `crt/stdio16.h` | `docs/spec/stdio.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
-| `dosfind`, `findfrst`, `findnext`, `int86`, `getenv`, `fullpath` | `crt/*.c`, `crt/int86.asm`, `crt/dos16.h` | `docs/spec/dos.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
+| `dosfind`, `findfrst`, `findnext`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `getenv`, `fullpath` | `crt/*.c`, `crt/*.asm`, `crt/dos16.h` | `docs/spec/dos.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 
 ### Strings, I/O, streams and the DOS interface
 
-These members are ordinary library code, not startup, arithmetic helpers, heap or formatting, so decision 6 lets the session that wrote their specs write them too. They were written from `docs/spec/string.md`, `io.md`, `stdio.md` and `dos.md`; C99 clauses 7.19 and 7.21; Ralf Brown's Interrupt List for the INT 21h functions they call; Microsoft's documentation of the `io.h`, `fcntl.h` and `dos.h` interfaces; and experiments in DOSBox-X. No Open Watcom runtime source or header was read and none of its libraries was disassembled. The `strerror` texts are the traditional Unix messages.
+These members are ordinary library code, not startup, arithmetic helpers, heap or formatting, so decision 6 lets the session that wrote their specs write them too. They were written from `docs/spec/string.md`, `io.md`, `stdio.md` and `dos.md`; C99 clauses 7.19 and 7.21; Ralf Brown's Interrupt List for the INT 21h functions they call; Microsoft's documentation of the `io.h`, `fcntl.h`, `dos.h` and `conio.h` interfaces; and experiments in DOSBox-X. No Open Watcom runtime source or header was read and none of its libraries was disassembled. The `strerror` texts are the traditional Unix messages.
 
 ### Startup
 
@@ -54,6 +55,7 @@ The startup members were written by a separate session that was given a copy of 
 
 - **`cstart`:** the spec; `docs/ABI.md`; Ralf Brown's Interrupt List for the `.EXE` load state and INT 21h functions 4Ah and 4Ch; the 8088's unreliable interrupt hold-off after a move to `SS`; its own experiments, disassembling its own wcc output for segment names, classes and alignments and for `main_`'s registers, and reading wlink maps for `_edata`/`_end`.
 - **`argv`:** the spec, `docs/ABI.md` and DESIGN.md decision 8.
+- **`exit`:** the spec ("Termination" and "Programs without the startup"), `docs/ABI.md`, `tests/startup/exitst.c` and `ownent`, and INT 21h function 4Ch as Ralf Brown's Interrupt List gives it. A later session, given a copy without `crt/`, its history or GR-DOS's `compat/`, wrote it for M3.
 - **`args`:** the spec and `tests/startup/*.expect`; the PSP layout in Ralf Brown's Interrupt List (INT 21h function 26h); Microsoft's documentation of how Microsoft C parses command-line arguments; C99 5.1.2.2.1; Open Watcom documentation of `:>` and `__segment`.
 
 They replace a first version written in the same session that designed the startup, before the spec existed, which decision 6 does not allow for startup code (commits `68b5f10` to `717a884`). That version was not consulted.
@@ -85,3 +87,7 @@ Results for the first release, with the snapshot of decision 1: 42 of the 65 mem
 ## GR-DOS `compat/crt`
 
 Not used. DESIGN.md ยง12 says it was written after examining Watcom runtime disassembly; GR-DOS's `docs/provenance.md` (its decision 20) says it was written from documented interfaces. The two disagree; this is to be resolved in GR-DOS during M3, when libc16 replaces it.
+
+### GR-DOS's `compat/crt` (M3)
+
+GR-DOS's ATTRIB and MEM linked its own runtime, `compat/crt`, written after the Open Watcom runtime then linked into them had been disassembled (DESIGN.md ยง12; GR-DOS `docs/provenance.md`, decision 20). libc16 replaces it and does not reuse it. The members those programs needed and libc16 lacked (`int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `exit`, and `struct SREGS`, `FP_SEG` and `FP_OFF`) were specified and written without reading `compat/crt`, `compat/include` or `compat/msc.h`. GR-DOS's documentation of `compat/crt` (its `docs/m4-utilities.md`) was read only after they were written, to update it. The call sites, in Microsoft's MS-DOS 4.00 sources for ATTRIB and MEM, were read.
