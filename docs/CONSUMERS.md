@@ -19,7 +19,7 @@ GR-DOS's ATTRIB and MEM are Microsoft's MS-DOS 4.00 sources (Microsoft C 5.1), a
 
 ## Observations
 
-- **Memory models.** `tar16` (large) and `tico16` (compact) could not link with libc16 0.02, which had only the small model. From 0.03 libc16 has a library per model (decision 11): `LIBC16C.LIB` for `-mc` and `LIBC16L.LIB` for `-ml`. Their functions are `__cdecl` with far data pointers as well, so `tico16`'s `_harderr` handler is declared `__cdecl __far` (`docs/spec/dos.md`), and `tar16` defines the POSIX names it uses (`S_IRUSR`, `S_ISDIR` and the like) from Microsoft's `S_IREAD`, `S_IWRITE` and `S_IFMT`, which are what libc16's `<sys/stat.h>` has. Open Watcom's `<stdio.h>` makes `fileno` a macro, so it was missing from the inventory; libc16 0.03 has it as a macro too.
+- **Memory models.** `tar16` (large) and `tico16` (compact) could not link with libc16 0.02, which had only the small model. From 0.03 libc16 has a library per model (decision 11): `LIBC16C.LIB` for `-mc` and `LIBC16L.LIB` for `-ml`, and both now link it ("Migration status"). Their functions are `__cdecl` with far data pointers as well, so `tico16`'s `_harderr` handler is declared `__cdecl __far` (`docs/spec/dos.md`), and `tar16` defines the POSIX names it uses (`S_IRUSR`, `S_ISDIR` and the like) from Microsoft's `S_IREAD`, `S_IWRITE` and `S_IFMT`, which are what libc16's `<sys/stat.h>` has. Open Watcom's `<stdio.h>` makes `fileno` a macro, so it was missing from the inventory; libc16 0.03 has it as a macro too.
 - **Formatting.** Every consumer uses `printf` and `fprintf`, and `df16`, `which16`, `tar16` and `tico16` use `sprintf`. Decision 3 prefers `libc16_` helpers for simple formatting, so each migration includes replacing the simple calls in the consumer.
 - **Streams.** Every consumer writes to `stdout`/`stderr` through `FILE`; `crcsum16` and `md5sum16` also read files through `fopen`/`fgetc`.
 - **errno.** Open Watcom's headers reach `errno` through `__get_errno_ptr`; libc16's headers define their own.
@@ -40,7 +40,7 @@ hello16's `Makefile` is the reference for these rules.
 
 ## Migration status
 
-Each small-model consumer has a PR that links it with libc16 instead of Open Watcom's runtime. Those PRs first pinned libc16 commit `8cde3bd` and built it from source, a temporary bootstrap until the first release. They now pin release v0.01 by version and SHA-256 (`Using libc16`), and CI passes on each. Sizes are the `.EXE` before and after; the C sources change only where libc16 leaves out a function (`printf`, `fprintf`, `sprintf`).
+Each small-model consumer has a PR that links it with libc16 instead of Open Watcom's runtime. Those PRs first pinned libc16 commit `8cde3bd` and built it from source, a temporary bootstrap until the first release. They now pin release v0.01 by version and SHA-256 (`Using libc16`), and CI passes on each. `tar16` and `tico16`, which need the large and compact models, pin release v0.03, the first with those libraries. Sizes are the `.EXE` before and after; the C sources change only where libc16 leaves out a function (`printf`, `fprintf`, `sprintf`).
 
 | Repository | PR | `.EXE` bytes, Open Watcom → libc16 | Assembly `.COM` |
 |---|---|---|---|
@@ -50,8 +50,10 @@ Each small-model consumer has a PR that links it with libc16 instead of Open Wat
 | `gr-dos/df16` | [#5](https://github.com/gr-dos/df16/pull/5) | 14,938 → 4,680 | none |
 | `gr-dos/md5sum16` | [#2](https://github.com/gr-dos/md5sum16/pull/2) | 25,610 → 14,302 | none |
 | `gr-dos/which16` | [#8](https://github.com/gr-dos/which16/pull/8) | 13,220 → 4,252 | 2,530 bytes, updated |
-| `gr-dos/tar16` | — | | pending: large model |
-| `tico-edit/tico16` | — | | pending: compact model |
+| `gr-dos/tar16` | [#4](https://github.com/gr-dos/tar16/pull/4) | 43,296 → 20,758 (large) | none |
+| `tico-edit/tico16` | [#3](https://github.com/tico-edit/tico16/pull/3) | 29,702 → 18,378 (compact) | none |
+
+`tar16` and `tico16` also change where libc16's interfaces differ ("Observations"). DOSBox-X never raises INT 24h, so `tico16`'s test build raises it itself (a `{Crit}` key) to check that its `_harderr` handler is called with DOS's arguments and fails the call.
 
 GR-DOS (M3, DESIGN.md §8) replaces its own runtime, `compat/crt`, with libc16 0.02 for ATTRIB and MEM: [gr-dos/gr-dos#9](https://github.com/gr-dos/gr-dos/pull/9). ATTRIB keeps Microsoft's entry code, ATTRIBA, and links no libc16 startup.
 
