@@ -7,30 +7,43 @@
 ; magnitudes with the unsigned core (crt/u8div.asm), then fixes the sign.
 ; LLONG_MIN / -1 gives LLONG_MIN.
 ;
-; In:  AX:BX:CX:DX = dividend (AX the high word), DS:SI -> divisor
-;      (8 bytes, low word first), which is left unchanged
+; In:  AX:BX:CX:DX = dividend (AX the high word), SI -> divisor (8 bytes,
+;      low word first) in DGROUP, at DS:SI in the small model and SS:SI
+;      in the compact and large models; the divisor is left unchanged
 ; Out: AX:BX:CX:DX = quotient (__I8DQ) or remainder (__I8DR); all else
 ;      preserved
+; Called near, or far in the large model. With far data, DS is set to
+; SS (DGROUP) while the divisor and the stack copies are read, and restored.
 
         .8086
+        include model.inc
 
-        extrn   __libc16_u8div:near
+        extrn   __libc16_u8div:CDIST
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  __I8DQ, __I8DR
 
 ; BP's sign bit is the result's sign; CF is set for the remainder.
-__I8DR:
+__I8DR  proc    CDIST
         push    bp
         mov     bp, ax                  ; the dividend's sign
         stc
         jmp     short divide
-__I8DQ:
+__I8DQ  label   CDIST
         push    bp
         mov     bp, ax
+ifdef FARDATA
+        xor     bp, ss:[si+6]           ; the signs differ; clears CF
+else
         xor     bp, [si+6]              ; the signs differ; clears CF
+endif
 divide:
+ifdef FARDATA
+        push    ds
+        push    ss
+        pop     ds
+endif
         push    si
         push    di
         sbb     di, di
@@ -76,8 +89,12 @@ positive:
         pop     di                      ; the flag
         pop     di
         pop     si
+ifdef FARDATA
+        pop     ds
+endif
         pop     bp
         ret
+__I8DR  endp
 
 ; AX:BX:CX:DX = -AX:BX:CX:DX, as the complement plus 1
 negate:

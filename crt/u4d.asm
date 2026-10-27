@@ -5,15 +5,17 @@
 ;
 ; In:  DX:AX = dividend, CX:BX = divisor
 ; Out: DX:AX = quotient, CX:BX = remainder; all else preserved
-; A zero divisor raises the divide-error trap (INT 0).
+; A zero divisor raises the divide-error trap (INT 0). Called near, or far
+; in the large model.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  __U4D
 
-__U4D:
+__U4D   proc    CDIST
         jcxz    short16
 
 ; Divisor of 17 bits or more: the quotient fits in 16 bits. The dividend's
@@ -60,6 +62,7 @@ short16:
         mov     dx, cx
         xor     cx, cx
         ret
+__U4D   endp
 _TEXT   ends
 
         end

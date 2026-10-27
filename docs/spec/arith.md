@@ -30,7 +30,18 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 | `__I8RS` | `a >> n` (arithmetic) | `long long` |
 | `__U8RS` | `a >> n` (logical) | `unsigned long long` |
 
+With a right operand reached through a far pointer, the compiler calls `E` variants of the 64-bit multiply, divide and remainder symbols instead (`docs/ABI.md`, "Known issues"); they are not provided yet.
+
 The compiler also calls these for the compound assignments (`*=`, `/=`, `%=`, `<<=`, `>>=`) and for constant operands. `long` shifts, additions, subtractions and comparisons, and `long long` additions, subtractions and comparisons, are inline and need nothing.
+
+## Memory models
+
+Each member is assembled for the small, compact and large models (decision 11; `crt/model.inc` and `docs/ABI.md`, "Memory models"):
+
+- **Small and compact:** called near (`call near ptr`, `jmp near ptr`), returning with `ret`.
+- **Large:** called far (`call far ptr`, `jmp far ptr`), returning with `retf`.
+- **The 8-byte operand `[SI]`** of the 64-bit helpers is in `DGROUP`: at `DS:SI` in the small model, where `DS` is `DGROUP`, and at `SS:SI` in the compact and large models, where the caller does not load `DS` first and it may hold any segment.
+- Registers, operands and results are otherwise the same in every model, and the small model's code is unchanged.
 
 ## Must
 
@@ -42,4 +53,4 @@ The compiler also calls these for the compound assignments (`*=`, `/=`, `%=`, `<
 
 ## Tests
 
-`tests/arith` runs each operation under DOSBox-X on operands that exercise every path: zero, one, all-ones, the signed extremes, every sign combination, divisors with a zero and a non-zero high word, and dividends smaller than divisors. Expected results are computed on the host. `tests/check-abi`'s arithmetic fixture lists every symbol above.
+`tests/arith` runs in every model (decision 11). It runs each operation under DOSBox-X on operands that exercise every path: zero, one, all-ones, the signed extremes, every sign combination, divisors with a zero and a non-zero high word, and dividends smaller than divisors. Expected results are computed on the host. In the compact and large models, the register test also calls each 64-bit helper with `DS` set to a segment other than `DGROUP`. `tests/check-abi`'s arithmetic fixture lists every symbol above and checks that each is called near or far as the model requires.

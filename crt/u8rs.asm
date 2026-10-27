@@ -5,14 +5,16 @@
 ;
 ; In:  AX:BX:CX:DX = a (AX the high word), SI = n
 ; Out: AX:BX:CX:DX = a >> n, filled with zeros; all else preserved
+; Called near, or far in the large model.
 
         .8086
+        include model.inc
 
 _TEXT   segment byte public 'CODE'
         assume  cs:_TEXT
         public  __U8RS
 
-__U8RS:
+__U8RS  proc    CDIST
         push    si
         or      si, si
         jz      done
@@ -26,6 +28,7 @@ next_bit:
 done:
         pop     si
         ret
+__U8RS  endp
 _TEXT   ends
 
         end
