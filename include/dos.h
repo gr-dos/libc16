@@ -38,11 +38,24 @@ union REGS {
     struct BYTEREGS h;
 };
 
+struct SREGS {
+    unsigned int es, cs, ss, ds;
+};
+
+/* The segment and offset words of a far pointer lvalue, as lvalues */
+#define FP_SEG(fp) (((unsigned *)&(fp))[1])
+#define FP_OFF(fp) (((unsigned *)&(fp))[0])
+
 /* PSP segment of the program */
 extern unsigned __cdecl _psp;
 
 unsigned __cdecl _dos_findfirst(const char *path, unsigned attr, struct find_t *f);
 unsigned __cdecl _dos_findnext(struct find_t *f);
 int      __cdecl int86(int intno, union REGS *in, union REGS *out);
+int      __cdecl int86x(int intno, union REGS *in, union REGS *out, struct SREGS *segs);
+int      __cdecl intdos(union REGS *in, union REGS *out);
+int      __cdecl intdosx(union REGS *in, union REGS *out, struct SREGS *segs);
+void     __cdecl segread(struct SREGS *segs);
+int      __cdecl bdos(int dosfn, unsigned dosdx, unsigned dosal);
 
 #endif
