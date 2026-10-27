@@ -1,0 +1,5 @@
+# Each test program links only the time members it calls: strftime links
+# tzdata for tzname, but neither tzset nor localtime.
+
+tz: cstart getenv i4d i4m localtim ltoa timecal tzdata tzset u4d
+strftime: cstart strftime tzdata

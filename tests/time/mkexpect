@@ -1,0 +1,103 @@
+#!/usr/bin/env perl
+
+# Writes tests/time/*.expect for tz.c from the host's own time zone
+# conversion, given each zone as an explicit POSIX TZ with the daylight
+# saving rules of docs/spec/time.md, and strftime.expect for strftime.c
+# (below).
+#
+# usage: tests/time/mkexpect
+
+use 5.042;
+use warnings;
+use POSIX qw(tzset);
+
+my @when = (0, 946684800, 951782400, 978307199, 2147483647, -1, -2147483648,
+  1772953199, 1772953200, 1793512799, 1793512800, 1793516400);
+
+# case name => [POSIX TZ, timezone, daylight, standard name, daylight name]
+my %zones = (
+  tzunset => ['UTC0', 0, 0, 'UTC', ''],
+  tzutc   => ['UTC0', 0, 0, 'UTC', ''],
+  tzest   => ['EST5EDT,M3.2.0,M11.1.0', 18000, 1, 'EST', 'EDT'],
+  tzcet   => ['CET-1', -3600, 0, 'CET', ''],
+  tznst   => ['NST3:30', 12600, 0, 'NST', ''],
+  tzlong  => ['ABCDEFGHIJKLMNOP-10:30:15QRSTUVWXYZABCDEFG,M3.2.0,M11.1.0', -37815, 1,
+              'ABCDEFGHIJKLMNO', 'QRSTUVWXYZABCDE'],
+  tzbad   => ['UTC0', 0, 0, 'UTC', ''],
+);
+
+for my $name (sort keys %zones) {
+  my ($tz, $west, $dl, $std, $dst) = $zones{$name}->@*;
+  local $ENV{TZ} = $tz;
+  tzset();
+  open my $fh, '>', "tests/time/$name.expect";
+  print $fh "timezone $west\ndaylight $dl\ntzname [$std] [$dst]\n";
+  for my $t (@when) {
+    my @tm = localtime $t;
+    printf $fh "%d %d-%02d-%02d %02d:%02d:%02d wday %d yday %d dst %d\n",
+      $t, $tm[5] + 1900, $tm[4] + 1, @tm[3, 2, 1, 0], @tm[6, 7], $tm[8] > 0 ? 1 : 0;
+  }
+  close $fh;
+}
+
+# strftime.expect for strftime.c: the host's strftime in the "C" locale on
+# the same dates, with %c, %x and %X spelt out as docs/spec/time.md gives
+# them (the host's %c pads the day with a space), then the lines for the
+# boundary, empty format, %Z and libc16's own cases, which follow from the
+# spec directly.
+{
+  POSIX::setlocale(POSIX::LC_ALL(), 'C');
+  # sec, min, hour, mday, mon, year, wday, yday, isdst, as in strftime.c
+  my @dates = (
+    [0, 0, 0, 1, 0, 70, 4, 0, 0],
+    [56, 34, 12, 29, 1, 100, 2, 59, 0],
+    [59, 59, 23, 31, 11, 124, 2, 365, 0],
+    [9, 5, 0, 4, 0, 126, 0, 3, 0],
+    [8, 7, 13, 1, 0, 118, 1, 0, 0],
+    [11, 10, 9, 31, 11, 99, 5, 364, 0],
+    [0, 0, 18, 4, 6, 126, 6, 184, 1],
+    [52, 45, 20, 13, 11, 1, 5, 346, 0],
+    [1, 2, 3, 1, 0, 0, 1, 0, 0],
+  );
+  my @formats = ((map { "%$_" } qw(a A b B c d H I j m M p S U W w x X y Y %)),
+    'Week %U/%W, day %j: %A %d %B %Y %I:%M %p');
+  my %spelt = (c => '%a %b %d %H:%M:%S %Y', x => '%m/%d/%y', X => '%H:%M:%S');
+  open my $fh, '>', 'tests/time/strftime.expect';
+  for my $i (0 .. $#dates) {
+    my $tm = $dates[$i];
+    # The host recomputes wday and yday from the date; the table's must
+    # agree.
+    die "date $i: wday or yday is wrong\n"
+      unless POSIX::strftime('%w %j', @$tm) eq sprintf '%d %03d', $tm->[6], $tm->[7] + 1;
+    for my $f (@formats) {
+      (my $host = $f) =~ s/%([cxX])/$spelt{$1}/g;
+      my $s = POSIX::strftime($host, @$tm);
+      print $fh "$i $f -> ", length $s, " [$s]\n";
+    }
+  }
+  print $fh <<'END';
+max11 %Y-%m-%d -> 10 [1970-01-01]
+max10 %Y-%m-%d -> 0
+max25 %c -> 24 [Thu Jan 01 00:00:00 1970]
+max24 %c -> 0
+max9 %B -> 8 [December]
+max8 %B -> 0
+max2 x -> 1 [x]
+max1 x -> 0
+max0 x -> 0
+empty1  -> 0
+empty1 terminated
+empty0  -> 0
+utc [%Z] -> 5 [[UTC]]
+utcdst [%Z] -> 2 [[]]
+est [%Z] -> 5 [[EST]]
+edt [%Z] -> 5 [[EDT]]
+edt2 [%Z] -> 5 [[EDT]]
+unknown [%Z] -> 5 [[EST]]
+other %q%E%5 -> 6 [%q%E%5]
+end 100% -> 4 [100%]
+percent 100%% -> 4 [100%]
+leap %S -> 2 [60]
+END
+  close $fh;
+}

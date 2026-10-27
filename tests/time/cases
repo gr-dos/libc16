@@ -1,0 +1,21 @@
+# tzset, localtime and strftime (docs/spec/time.md); the expected outputs
+# come from tests/time/mkexpect.
+
+set TZ=
+tzunset 0 tz
+set TZ=UTC0
+tzutc 0 tz
+set TZ=EST5EDT
+tzest 0 tz
+set TZ=CET-1
+tzcet 0 tz
+set TZ=NST3:30
+tznst 0 tz
+set TZ=ABCDEFGHIJKLMNOP-10:30:15QRSTUVWXYZABCDEFG
+tzlong 0 tz
+set TZ=EST5:3
+tzbad 0 tz
+set TZ=
+
+# strftime (docs/spec/time.md), with no TZ: it sets tzname itself.
+strftime 0 strftime
