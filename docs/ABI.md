@@ -7,11 +7,11 @@ This is the contract between libc16 and the programs that link it. Every stateme
 
 ## Consumer build
 
-A consumer compiles with Open Watcom's **default register convention** (decision 2) and only libc16's headers:
+A consumer compiles with Open Watcom's **default register convention** (decision 2) and only libc16's headers. `LIBC16` here is a libc16 tree in the release layout: an unpacked release, or a checkout's `build/stage` (README.md, "Using a release"):
 
 ```text
-wcc -zl -zld -x -ms -0 -s -bt=dos -I$(LIBC16_ROOT)/include ...
-wlink option nodefaultlibs format dos ... library $(LIBC16_ROOT)/build/LIBC16.LIB
+wcc -zl -zld -x -ms -0 -s -bt=dos -I$(LIBC16)/include ...
+wlink option nodefaultlibs format dos ... library $(LIBC16)/lib/LIBC16.LIB
 ```
 
 | Flag | Why |

@@ -7,7 +7,7 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 - Each module has a behavioural spec in `docs/spec/` before it is implemented, citing its sources: the C standard, DOS interrupt documentation, the Microsoft C 5.1 interfaces, Open Watcom *documentation*, and our own call-site experiments (`tests/abi`).
 - No one working on libc16 reads Open Watcom runtime source or disassembles its libraries. Compiler support symbols and conventions are found by compiling our own C and disassembling our own objects.
 - Startup, arithmetic and 64-bit helpers, the heap and formatting code are implemented by a separate session working from the spec alone.
-- Before the first release, an automated audit compares our objects with Open Watcom's runtime library and reports only similarity scores.
+- Before the first release, an automated audit compares our objects with Open Watcom's runtime library and reports only similarity scores ("Similarity audit" below).
 - AI assistance is recorded here and in the `Co-Authored-By` trailers of the commits. Material generated purely by an AI may not be protected by copyright; the MIT grant covers the human contributions, and nothing here restricts redistribution of the rest.
 
 ## Tools (not linked into programs)
@@ -75,6 +75,12 @@ The members for the compiler's 32- and 64-bit helpers (`i4m`, `u4d`, `i4d`, `i8m
 `malloc` and `free` were written by the same separate session from `docs/spec/heap.md` and `docs/spec/startup.md`: a first-fit list of blocks with a one-word size header, merging free neighbours during the search, the usual textbook design. Its sources were C99 7.20.3; Ralf Brown's Interrupt List for INT 21h functions 4Ah (resize memory block) and, in the tests, 48h and 49h; and Open Watcom documentation of `#pragma aux`. The same session added `___libc16_stack_top` to `cstart` (an empty segment after `STACK`, as `docs/spec/heap.md` allows), after linking the test programs to check that their maps put it at the top of the stack and that the programs are byte-for-byte unchanged.
 
 A later separate session, under the same instructions, added `LIBC16_NULL` to `cstart` (`docs/spec/startup.md`, "Null pointer"): 2 bytes of class `BEGDATA` at the start of `DGROUP`. Its sources were the spec, C99 6.3.2.3 and its own experiments, reading wlink maps of its own objects: a segment of class `DATA` declared first in `cstart` still came after the `DATA` segments of a C object linked before it, while one of class `BEGDATA` came first in `DGROUP` under `dosseg`.
+
+## Similarity audit
+
+`scripts/similarity-audit` (run by `make audit`, in CI and before each release; written for libc16, MIT) compares the code of every member of `LIBC16.LIB` with the small-model DOS runtime library of the pinned Open Watcom snapshot: `lib286/dos/clibs.lib`, `lib286/maths.lib` and the objects in `lib286/dos`. It reads both as OMF records, takes the bytes of code-class segments, leaves out every byte a fixup patches, and cuts the rest into overlapping 8-byte runs. For each libc16 member it prints only the fraction of its runs found in the one Open Watcom member that shares most of them (*best*) and in the whole library (*any*). Nothing is disassembled, and no Open Watcom names, bytes or code are printed or kept. Before scoring, a control check requires every judged member to be found whole in `LIBC16.LIB` itself. A member with at least 16 runs and a best score above 0.50 fails the audit. Members with fewer runs (a few instructions) are listed but not judged.
+
+Results for the first release, with the snapshot of decision 1: 42 of the 65 members are long enough to judge. Their highest best score is 0.12 (`stricmp`); most are under 0.05. Four short members score higher: `i8ls` and `i8rs` (0.64, 11 runs), `u8rs` (0.73, 11 runs) and `putc` (1.00, 3 runs). They are a 64-bit shift loop and a jump to `fputc`, which have few possible encodings. The full report is `docs/AUDIT.txt` in each release archive.
 
 ## GR-DOS `compat/crt`
 

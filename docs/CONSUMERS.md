@@ -23,9 +23,22 @@ Every program also references `_cstart_`, `__argc` (all of them take `argc`/`arg
 - **errno.** Open Watcom's headers reach `errno` through `__get_errno_ptr`; libc16's headers define their own.
 - **64-bit.** Only `df16` needs 64-bit helpers so far (`__U8M`, `__U8DQ`, `__U8DR`).
 
+## Using libc16
+
+A consumer gets libc16 from a release (DESIGN.md §3 and §9):
+
+- **`scripts/fetch-libc16`**, a copy of libc16's `consumers/fetch-libc16`, pins one release by `version` and `sha256`. It downloads `libc16-<version>.zip` from the `v<version>` release, checks its SHA-256 before unpacking it, and unpacks its `libc16-<version>/` directory as `build/libc16`. CI and releases never follow a branch.
+- **`LIBC16_ROOT`** (default `build/libc16`) is the libc16 tree the `Makefile` uses. It may also name an unpacked release elsewhere, or a libc16 checkout built with `make`, whose `build/stage` has the same layout. That is the local override for development and A/B comparisons. The `Makefile` reads `$(LIBC16_DIR)/lib/LIBC16.LIB` and `$(LIBC16_DIR)/include`, where `LIBC16_DIR` is `$(LIBC16_ROOT)/build/stage` if that exists and `$(LIBC16_ROOT)` otherwise.
+- **The toolchain** is the Open Watcom snapshot the release was built with. `$(LIBC16_DIR)/tools/fetch-watcom build/tools` downloads it, checks its SHA-256 and prints the `WATCOM` directory. CI caches `build/tools` keyed on `scripts/fetch-libc16`.
+- **`LIBC16_URL`** makes `scripts/fetch-libc16` fetch the same archive from elsewhere, such as a mirror or a candidate build being tested. The pinned SHA-256 still applies.
+
+hello16's `Makefile` is the reference for these rules.
+
+**Updating a consumer** to a new libc16 is a deliberate change of its own: set `version` and `sha256` in `scripts/fetch-libc16` to the new release's values (the `.sha256` asset, also in the release notes), in the same commit, and run its tests and any assembly comparisons. Copy a newer `consumers/fetch-libc16` only when the script itself changes.
+
 ## Migration status
 
-Each small-model consumer has a PR that links it with libc16 instead of Open Watcom's runtime, pinned to libc16 `8cde3bd` (`scripts/fetch-libc16`). Sizes are the `.EXE` before and after; the C sources change only where libc16 leaves out a function (`printf`, `fprintf`, `sprintf`).
+Each small-model consumer has a PR that links it with libc16 instead of Open Watcom's runtime. Those PRs first pinned libc16 commit `8cde3bd` and built it from source, a temporary bootstrap until the first release; they move to the release (`Using libc16`) when it is published. Sizes are the `.EXE` before and after; the C sources change only where libc16 leaves out a function (`printf`, `fprintf`, `sprintf`).
 
 | Repository | PR | `.EXE` bytes, Open Watcom → libc16 | Assembly `.COM` |
 |---|---|---|---|

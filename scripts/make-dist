@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+#
+# Write the release ZIP: the staged tree and the audit report, under one
+# top-level directory.
+#
+# usage: scripts/make-dist STAGE AUDIT TOPDIR OUT.zip
+#
+# The archive is deterministic: entries in sorted order, every file
+# stamped with the commit time (or SOURCE_DATE_EPOCH) in UTC, mode 644,
+# or 755 for tools/, and no other metadata.
+
+use v5.36;
+use File::Find qw(find);
+use IO::Compress::Zip qw($ZipError :zip_method);
+use POSIX qw(tzset);
+
+@ARGV == 4 or die "usage: $0 STAGE AUDIT TOPDIR OUT.zip\n";
+my ($stage, $audit, $top, $out) = @ARGV;
+
+my $time = $ENV{SOURCE_DATE_EPOCH} // `git log -1 --format=%ct 2>/dev/null`;
+chomp $time;
+$time = 315532800 unless $time =~ /^\d+$/;      # 1980-01-01, ZIP's earliest
+
+# ZIP stores local time; UTC makes the bytes the same in any time zone.
+$ENV{TZ} = 'UTC';
+tzset();
+
+my %files;                                       # name in the zip => source
+find({ no_chdir => 1, wanted => sub {
+    return unless -f $_;
+    (my $rel = $_) =~ s{^\Q$stage\E/}{};
+    $files{"$top/$rel"} = $_;
+} }, $stage);
+$files{"$top/docs/AUDIT.txt"} = $audit;
+
+my $zip;
+for my $name (sort keys %files) {
+    open my $fh, '<:raw', $files{$name} or die "$files{$name}: $!\n";
+    local $/;
+    my $data = <$fh>;
+    close $fh;
+    my $mode = $name =~ m{^\Q$top\E/tools/} ? 0100755 : 0100644;
+    my %opt = (Name => $name, Time => $time,
+               ExtAttr => $mode << 16, Method => ZIP_CM_DEFLATE,
+               CanonicalName => 1);
+    if ($zip) {
+        $zip->newStream(%opt) or die "$name: $ZipError\n";
+    } else {
+        $zip = IO::Compress::Zip->new("$out.tmp", %opt)
+            or die "$out: $ZipError\n";
+    }
+    $zip->print($data);
+}
+$zip->close or die "$out: $ZipError\n";
+rename "$out.tmp", $out or die "$out: $!\n";

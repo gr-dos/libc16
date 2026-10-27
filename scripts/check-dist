@@ -1,0 +1,82 @@
+#!/usr/bin/env perl
+#
+# Check a release ZIP against the tree it was built from: its checksum
+# file, its single top-level directory, the required files, the headers
+# and library byte for byte, and a passing audit.
+#
+# usage: scripts/check-dist libc16-VERSION.zip VERSION
+
+use v5.36;
+use Digest::SHA qw(sha256_hex);
+use File::Basename qw(basename);
+use File::Find qw(find);
+use IO::Uncompress::Unzip qw($UnzipError);
+
+@ARGV == 2 or die "usage: $0 libc16-VERSION.zip VERSION\n";
+my ($zipfile, $version) = @ARGV;
+my $top = "libc16-$version";
+my $errors = 0;
+sub bad ($msg) { say "not ok: $msg"; $errors++ }
+sub slurp ($path) {
+    open my $fh, '<:raw', $path or die "$path: $!\n";
+    local $/;
+    return <$fh>;
+}
+
+# The checksum file, in sha256sum format, names the ZIP by its base name.
+my $zipdata = slurp($zipfile);
+my $sum = slurp("$zipfile.sha256");
+my $want = sha256_hex($zipdata) . '  ' . basename($zipfile) . "\n";
+bad("$zipfile.sha256 does not match the ZIP") unless $sum eq $want;
+
+my %entries;
+my $z = IO::Uncompress::Unzip->new(\$zipdata) or die "$zipfile: $UnzipError\n";
+for (my $status = 1; $status > 0; $status = $z->nextStream) {
+    my $name = $z->getHeaderInfo->{Name};
+    my $data = '';
+    while (($status = $z->read(my $buf)) > 0) { $data .= $buf }
+    die "$zipfile: $name: $UnzipError\n" if $status < 0;
+    $entries{$name} = $data;
+}
+
+for my $name (sort keys %entries) {
+    bad("$name is outside $top/") unless $name =~ m{^\Q$top\E/};
+}
+my %got = map { (s{^\Q$top\E/}{}r => $entries{$_}) } keys %entries;
+
+for my $f (qw(VERSION LICENSE README.md BUILD.txt lib/LIBC16.LIB
+              docs/ABI.md docs/DESIGN.md docs/LICENSE-PROVENANCE.md
+              docs/CONSUMERS.md docs/AUDIT.txt tools/fetch-watcom)) {
+    bad("$f is missing") unless exists $got{$f};
+}
+bad('VERSION is not ' . $version) unless ($got{VERSION} // '') eq "$version\n";
+bad('lib/LIBC16.LIB differs from build/LIBC16.LIB')
+    unless ($got{'lib/LIBC16.LIB'} // '') eq slurp('build/LIBC16.LIB');
+
+# Exactly the public headers, unchanged.
+my %hdrs;
+find({ no_chdir => 1, wanted => sub { $hdrs{$_} = 1 if -f $_ } }, 'include');
+for my $h (sort keys %hdrs) {
+    bad("$h is missing or differs") unless ($got{$h} // "\0") eq slurp($h);
+}
+for my $f (grep { m{^include/} } sort keys %got) {
+    bad("$f is not a public header") unless $hdrs{$f};
+}
+
+for my $f (sort keys %got) {
+    bad("$f is unexpected")
+        unless $f =~ m{^(VERSION|LICENSE|README\.md|BUILD\.txt|lib/LIBC16\.LIB|
+                         tools/fetch-watcom|include/.*\.h|docs/[^/]+\.(md|txt)|
+                         docs/spec/[^/]+\.md)$}x;
+}
+bad('BUILD.txt does not name the source revision')
+    unless ($got{'BUILD.txt'} // '') =~ /revision [0-9a-f]{40}/;
+bad('docs/AUDIT.txt does not record a passing audit')
+    unless ($got{'docs/AUDIT.txt'} // '') =~ /^control: .*\n(?s:.*)^0 member\(s\) over/m;
+
+if ($errors) {
+    say "$errors problem(s) in $zipfile";
+    exit 1;
+}
+printf "ok %s: %d files, sha256 %s\n", basename($zipfile), scalar(keys %got),
+    substr($sum, 0, 64);
