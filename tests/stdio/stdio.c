@@ -20,10 +20,11 @@ int main(void)
     CHECK(putchar('z') == 'z' && (putchar)('\n') == '\n');
     CHECK(fflush(stdout) == 0 && fflush(NULL) == 0 && !ferror(stdout));
     CHECK(fputs("to stderr\n", stderr) == 0);
+    CHECK(fileno(stdin) == 0 && fileno(stdout) == 1 && fileno(stderr) == 2);
 
     /* write, then read back untranslated */
     fp = fopen("T.TXT", "w");
-    CHECK(fp != NULL);
+    CHECK(fp != NULL && fileno(fp) > 2);
     CHECK(fputs("x\ny", fp) == 0 && fputc('\n', fp) == '\n');
     CHECK(fgetc(fp) == EOF && ferror(fp));
     CHECK(fclose(fp) == 0);

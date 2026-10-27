@@ -2,3 +2,4 @@
 
 stdio 0 stdio
 stdin 0 stdinrd <INPUT.TXT
+rdwr 0 rdwr

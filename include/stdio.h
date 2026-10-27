@@ -3,6 +3,8 @@
 #ifndef _LIBC16_STDIO_H
 #define _LIBC16_STDIO_H
 
+#include <_libc16.h>
+
 #ifndef _LIBC16_SIZE_T
 #define _LIBC16_SIZE_T
 typedef unsigned size_t;
@@ -55,6 +57,8 @@ char * __cdecl fgets(char *s, int n, FILE *fp);
 FILE * __cdecl fopen(const char *path, const char *mode);
 int    __cdecl fputc(int c, FILE *fp);
 int    __cdecl fputs(const char *s, FILE *fp);
+size_t __cdecl fread(void *ptr, size_t size, size_t nmemb, FILE *fp);
+size_t __cdecl fwrite(const void *ptr, size_t size, size_t nmemb, FILE *fp);
 int    __cdecl getc(FILE *fp);
 int    __cdecl putc(int c, FILE *fp);
 int    __cdecl putchar(int c);
@@ -62,6 +66,8 @@ int    __cdecl ungetc(int c, FILE *fp);
 
 #define feof(fp)   (((fp)->_flag & _IOEOF) != 0)
 #define ferror(fp) (((fp)->_flag & _IOERR) != 0)
+/* Microsoft's, not C89's; a macro only */
+#define fileno(fp) ((fp)->_fd)
 #define getc(fp)    fgetc(fp)
 #define putc(c, fp) fputc(c, fp)
 #define putchar(c)  fputc(c, stdout)
