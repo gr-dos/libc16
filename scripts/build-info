@@ -24,7 +24,11 @@ cat <<EOF
 libc16 $version
 
 Source:   https://github.com/gr-dos/libc16, revision $rev
-Target:   DOS real-mode .EXE, small memory model, 8086 instructions only
+Target:   DOS real-mode .EXE, 8086 instructions only; small, compact and
+          large memory models, one library each:
+            lib/LIBC16.LIB   small    (wcc -ms, jwasm -D__SMALL__)
+            lib/LIBC16C.LIB  compact  (wcc -mc, jwasm -D__COMPACT__)
+            lib/LIBC16L.LIB  large    (wcc -ml, jwasm -D__LARGE__)
 
 Toolchain (pinned; the compiler is not included):
   Open Watcom  open-watcom-v2 release $(pin fetch-watcom release),
@@ -34,7 +38,7 @@ Toolchain (pinned; the compiler is not included):
   JWasm        $(pin fetch-jwasm version), commit $(pin fetch-jwasm commit),
                with the patches in patches/jwasm (set $patches)
 
-Library build flags:
+Library build flags, with each model's own flag added:
   wcc    $wcflags
   jwasm  $jwflags
   wlib   -q -n -b, one member per source file in crt/
@@ -42,6 +46,7 @@ Library build flags:
 Consumer flags (docs/ABI.md, "Consumer build"):
   wcc    -zl -zld -x -ms -0 -s -bt=dos -I<this directory>/include ...
   wlink  option nodefaultlibs format dos ... library <this directory>/lib/LIBC16.LIB
+  and -mc with LIBC16C.LIB, or -ml with LIBC16L.LIB, for the other models.
   Compile with the Open Watcom snapshot above and its default register
   calling convention; every public function is declared __cdecl.
 

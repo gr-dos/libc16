@@ -29,7 +29,7 @@ It holds one directory:
 | Path | What |
 |---|---|
 | `libc16-0.01/VERSION` | the version |
-| `lib/LIBC16.LIB` | the library |
+| `lib/LIBC16.LIB`, `lib/LIBC16C.LIB`, `lib/LIBC16L.LIB` | the library for the small, compact and large memory models |
 | `include/` | the public headers |
 | `docs/` | the ABI, design, provenance and per-function specs, and the similarity audit (`AUDIT.txt`) |
 | `BUILD.txt` | the source revision, the pinned toolchain, the flags and how to rebuild |
@@ -43,6 +43,10 @@ with no default libraries:
     wcc -zl -zld -x -ms -0 -s -bt=dos -Ilibc16-0.01/include hello.c
     wlink option nodefaultlibs format dos file hello.obj \
         library libc16-0.01/lib/LIBC16.LIB
+
+For the compact model compile with `-mc` and link `LIBC16C.LIB`; for
+the large model, `-ml` and `LIBC16L.LIB` (DESIGN.md, decision 11). The
+medium and huge models are not provided.
 
 `docs/ABI.md`, "Consumer build", explains each flag. On Linux,
 `libc16-0.01/tools/fetch-watcom DIR` downloads the snapshot into `DIR`,
@@ -71,10 +75,12 @@ what such a build uses.
 On Linux, with Perl 5.42 as `perl`, a C compiler and make (to build
 JWasm), git, curl and xz, and `dosbox-x` for the tests:
 
-    make            # build/LIBC16.LIB, staged with the headers in build/stage
+    make            # build/s/LIBC16.LIB, build/c/LIBC16C.LIB and
+                    # build/l/LIBC16L.LIB, staged with the headers in build/stage
     make test       # the ABI, link-map, 8086 and selective-linking checks,
-                    # and the test programs under DOSBox-X
-    make audit      # the similarity audit
+                    # and the test programs under DOSBox-X, in every model
+    make audit      # the similarity audit of each library
+    make MODEL=c test   # lib, test or audit for one model (s, c or l)
     make dist       # build/dist/libc16-VERSION.zip and its .sha256
     make install PREFIX=DIR   # copy build/stage to DIR
 

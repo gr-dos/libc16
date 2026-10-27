@@ -4,6 +4,8 @@
 #ifndef _LIBC16_CONIO_H
 #define _LIBC16_CONIO_H
 
+#include <_libc16.h>
+
 int __cdecl kbhit(void);
 
 #endif

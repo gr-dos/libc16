@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
-# Write the release ZIP: the staged tree and the audit report, under one
-# top-level directory.
+# Write the release ZIP: the staged tree and the audit reports of the
+# small, compact and large libraries, under one top-level directory.
 #
-# usage: scripts/make-dist STAGE AUDIT TOPDIR OUT.zip
+# usage: scripts/make-dist STAGE AUDIT-S AUDIT-C AUDIT-L TOPDIR OUT.zip
 #
 # The archive is deterministic: entries in sorted order, every file
 # stamped with the commit time (or SOURCE_DATE_EPOCH) in UTC, mode 644,
@@ -14,8 +14,9 @@ use File::Find qw(find);
 use IO::Compress::Zip qw($ZipError :zip_method);
 use POSIX qw(tzset);
 
-@ARGV == 4 or die "usage: $0 STAGE AUDIT TOPDIR OUT.zip\n";
-my ($stage, $audit, $top, $out) = @ARGV;
+@ARGV == 6 or die "usage: $0 STAGE AUDIT-S AUDIT-C AUDIT-L TOPDIR OUT.zip\n";
+my ($stage, %audit, $top, $out);
+($stage, @audit{qw(s c l)}, $top, $out) = @ARGV;
 
 my $time = $ENV{SOURCE_DATE_EPOCH} // `git log -1 --format=%ct 2>/dev/null`;
 chomp $time;
@@ -31,14 +32,24 @@ find({ no_chdir => 1, wanted => sub {
     (my $rel = $_) =~ s{^\Q$stage\E/}{};
     $files{"$top/$rel"} = $_;
 } }, $stage);
-$files{"$top/docs/AUDIT.txt"} = $audit;
+# One report, with a heading per library.
+my %title = (s => 'LIBC16.LIB (small)', c => 'LIBC16C.LIB (compact)', l => 'LIBC16L.LIB (large)');
+my $report = join "\n", map {
+    open my $fh, '<', $audit{$_} or die "$audit{$_}: $!\n";
+    local $/;
+    "== $title{$_}\n\n" . <$fh>;
+} qw(s c l);
+my %data = ("$top/docs/AUDIT.txt" => $report);
 
 my $zip;
-for my $name (sort keys %files) {
-    open my $fh, '<:raw', $files{$name} or die "$files{$name}: $!\n";
-    local $/;
-    my $data = <$fh>;
-    close $fh;
+for my $name (sort(keys %files, keys %data)) {
+    my $data = $data{$name};
+    unless (defined $data) {
+        open my $fh, '<:raw', $files{$name} or die "$files{$name}: $!\n";
+        local $/;
+        $data = <$fh>;
+        close $fh;
+    }
     my $mode = $name =~ m{^\Q$top\E/tools/} ? 0100755 : 0100644;
     my %opt = (Name => $name, Time => $time,
                ExtAttr => $mode << 16, Method => ZIP_CM_DEFLATE,

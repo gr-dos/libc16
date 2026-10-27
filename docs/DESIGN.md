@@ -22,7 +22,7 @@ That includes unused file I/O, argument processing, formatting, allocation, arit
 ### Goals
 
 - Produce usable, compact `.EXE` programs for original 8086/8088 systems, using a Linux-hosted build workflow.
-- Start with **Open Watcom 16-bit C**, **small memory model**, and **Microsoft-compatible `__cdecl`** linkage for library interfaces (decision 2).
+- Start with **Open Watcom 16-bit C**, **small memory model**, and **Microsoft-compatible `__cdecl`** linkage for library interfaces (decision 2); add the **compact** and **large** models when consumers need them (decision 11).
 - Supply independently authored, permissively licensed implementations of the runtime facilities required by participating tools.
 - Enforce explicit linking with `libc16`, with **no fallback** to Open Watcom's runtime.
 - Keep archive modules sufficiently granular that adding an unused function never grows other executables.
@@ -34,7 +34,7 @@ That includes unused file I/O, argument processing, formatting, allocation, arit
 ### Non-goals for the MVP
 
 - A complete ANSI C library, full floating-point `printf`, a POSIX layer, or broad compiler compatibility.
-- DPMI, protected mode, 186/286/386 instruction dependencies, or other memory models.
+- DPMI, protected mode, 186/286/386 instruction dependencies, or memory models other than small, compact and large (decision 11).
 - `.COM` support initially. Native assembly `.COM` tools remain a separate, valid optimization strategy.
 - A universal cross-platform runtime for an eventual Apple IIgs port. Portable routines may be reused or cherry-picked independently.
 - Automatically replacing assembly implementations with C implementations.
@@ -43,10 +43,10 @@ That includes unused file I/O, argument processing, formatting, allocation, arit
 ## 3. Repository and artifact conventions
 
 - Source repository: **`gr-dos/libc16`**.
-- Primary static archive: **`LIBC16.LIB`**, compatible with the selected Open Watcom linker/librarian tooling.
+- Primary static archive: **`LIBC16.LIB`** (small model), compatible with the selected Open Watcom linker/librarian tooling; **`LIBC16C.LIB`** and **`LIBC16L.LIB`** for the compact and large models (decision 11).
 - Repository naming: the `gr-dos` organization eliminates the old `dos-` repository prefix (for example, `gr-dos/df16`, not `gr-dos/dos-df16`).
 - Build tools initially: Open Watcom (`wcc`, `wlink`, `wlib`), JWasm (decision 4), GNU Make, and Linux-hosted testing/emulators.
-- Distribution: versioned releases with binaries, headers, checksums, license/provenance documentation, and reproducible source/build instructions. Concretely: `VERSION` holds a DOS-style version (`0.01`, `0.02`, ..., not SemVer); merging a PR that changes it tags the merge commit `v<VERSION>` and publishes `libc16-<VERSION>.zip` and `libc16-<VERSION>.zip.sha256`. The archive holds one `libc16-<VERSION>/` directory with `VERSION`, `LICENSE`, `README.md`, `BUILD.txt` (source revision, pinned toolchain, flags, rebuild steps), `lib/LIBC16.LIB`, `include/`, `docs/` and `tools/fetch-watcom`; no compiler. A checkout's `make` stages the same layout in `build/stage`.
+- Distribution: versioned releases with binaries, headers, checksums, license/provenance documentation, and reproducible source/build instructions. Concretely: `VERSION` holds a DOS-style version (`0.01`, `0.02`, ..., not SemVer); merging a PR that changes it tags the merge commit `v<VERSION>` and publishes `libc16-<VERSION>.zip` and `libc16-<VERSION>.zip.sha256`. The archive holds one `libc16-<VERSION>/` directory with `VERSION`, `LICENSE`, `README.md`, `BUILD.txt` (source revision, pinned toolchain, flags, rebuild steps), `lib/LIBC16.LIB`, `lib/LIBC16C.LIB`, `lib/LIBC16L.LIB`, `include/`, `docs/` and `tools/fetch-watcom`; no compiler. A checkout's `make` stages the same layout in `build/stage`.
 
 Illustrative structure (not a commitment to file-level layout):
 
@@ -83,7 +83,7 @@ libc16/
 ### Initial ABI
 
 - Intel **8086 instruction set only**, including archive members, startup code, and any compiler support helpers.
-- DOS real-mode `.EXE`, small code/data model with near pointers where applicable.
+- DOS real-mode `.EXE`, small code/data model with near pointers where applicable; compact and large models from M4 (decision 11).
 - Open Watcom generating code with **Microsoft-compatible `__cdecl`** for published library interfaces, while consumers keep Open Watcom's default register convention (decision 2); document symbol decoration, stack argument placement, return values, register preservation, segment register behavior, struct packing and pointer representation.
 - Prefer a public header that explicitly declares ABI details; validate using small compiled/disassembled call-site fixtures rather than relying on assumptions.
 - Preserve names expected by Open Watcom for **compiler-generated helper symbols**, even where they are not exposed as public APIs.
@@ -279,6 +279,12 @@ MIT is the intended license of independently authored `libc16` source. **Licensi
 - [ ] Demonstrate no fallback to Watcom libraries and measure effects on `.EXE` sizes, runtime memory and boot-floppy cluster consumption.
 - [ ] Publish release documentation, consumer manifest, build artifacts and reproducibility/provenance notes.
 
+### M4 — Compact and large models
+
+- [ ] Build, test and audit one library per model: `LIBC16.LIB` (small), `LIBC16C.LIB` (compact) and `LIBC16L.LIB` (large), from the same sources; the small library's code is unchanged by the other two.
+- [ ] Define the far-data and far-code ABI from call-site experiments (`docs/ABI.md`, "Memory models"), with startup, arithmetic helpers and a far heap for the compact and large models.
+- [ ] Add what `tico-edit/tico16` (compact) and `gr-dos/tar16` (large) need, and migrate both off Open Watcom's runtime, with their formatting rewritten in the consumers (decision 3).
+
 ### MVP is complete when
 
 1. At least representative standalone `*16` C utilities build and test with `libc16` **without Open Watcom runtime code**.
@@ -311,3 +317,4 @@ These questions may change implementation details, but not the agreed platform, 
 8. **Startup selection.** Automatic. The core startup defines `_cstart_`; a separate archive member defines `__argc`, so it is linked only when `main` takes parameters. Optional members register their initialization (and later termination, such as flushing buffered I/O) by contributing entries to an init table in a dedicated segment, which the startup walks without referencing any of them.
 9. **Text mode.** `open` defaults to `O_TEXT` with CR/LF translation, following Microsoft C. Ctrl-Z handling is specified with the first consumer that reads text.
 10. **Delivery.** M1 to M3 are delivered as small, focused commits.
+11. **Memory models.** libc16 supports the small, compact and large models, because `tico-edit/tico16` is compact and `gr-dos/tar16` is large. Each model has its own library, built from the same sources: `LIBC16.LIB` (small, the name every existing consumer uses), `LIBC16C.LIB` (compact) and `LIBC16L.LIB` (large). One set of headers serves all three and rejects any other model. Assembly members are written once, for every model, with `crt/model.inc`. Adding a model must not change the small library's code. The tiny, medium and huge models, and `SS` other than `DGROUP` (`-zu`), are not supported until a consumer needs them.

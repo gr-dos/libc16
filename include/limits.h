@@ -3,6 +3,8 @@
 #ifndef _LIBC16_LIMITS_H
 #define _LIBC16_LIMITS_H
 
+#include <_libc16.h>
+
 #define CHAR_BIT   8
 #define SCHAR_MIN  (-128)
 #define SCHAR_MAX  127

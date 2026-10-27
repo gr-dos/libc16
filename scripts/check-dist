@@ -44,14 +44,17 @@ for my $name (sort keys %entries) {
 }
 my %got = map { (s{^\Q$top\E/}{}r => $entries{$_}) } keys %entries;
 
-for my $f (qw(VERSION LICENSE README.md BUILD.txt lib/LIBC16.LIB
+my %libs = ('lib/LIBC16.LIB' => 'build/s/LIBC16.LIB', 'lib/LIBC16C.LIB' => 'build/c/LIBC16C.LIB',
+            'lib/LIBC16L.LIB' => 'build/l/LIBC16L.LIB');
+for my $f (sort(keys %libs), qw(VERSION LICENSE README.md BUILD.txt
               docs/ABI.md docs/DESIGN.md docs/LICENSE-PROVENANCE.md
               docs/CONSUMERS.md docs/AUDIT.txt tools/fetch-watcom)) {
     bad("$f is missing") unless exists $got{$f};
 }
 bad('VERSION is not ' . $version) unless ($got{VERSION} // '') eq "$version\n";
-bad('lib/LIBC16.LIB differs from build/LIBC16.LIB')
-    unless ($got{'lib/LIBC16.LIB'} // '') eq slurp('build/LIBC16.LIB');
+for my $f (sort keys %libs) {
+    bad("$f differs from $libs{$f}") unless ($got{$f} // '') eq slurp($libs{$f});
+}
 
 # Exactly the public headers, unchanged.
 my %hdrs;
@@ -65,14 +68,15 @@ for my $f (grep { m{^include/} } sort keys %got) {
 
 for my $f (sort keys %got) {
     bad("$f is unexpected")
-        unless $f =~ m{^(VERSION|LICENSE|README\.md|BUILD\.txt|lib/LIBC16\.LIB|
+        unless $f =~ m{^(VERSION|LICENSE|README\.md|BUILD\.txt|lib/LIBC16[CL]?\.LIB|
                          tools/fetch-watcom|include/.*\.h|docs/[^/]+\.(md|txt)|
                          docs/spec/[^/]+\.md)$}x;
 }
 bad('BUILD.txt does not name the source revision')
     unless ($got{'BUILD.txt'} // '') =~ /revision [0-9a-f]{40}/;
-bad('docs/AUDIT.txt does not record a passing audit')
-    unless ($got{'docs/AUDIT.txt'} // '') =~ /^control: .*\n(?s:.*)^0 member\(s\) over/m;
+# A passing audit for each of the three libraries.
+my @passed = ($got{'docs/AUDIT.txt'} // '') =~ /^control: .*\n(?:(?!^== ).*\n)*?^0 member\(s\) over/mg;
+bad('docs/AUDIT.txt does not record a passing audit of each library') unless @passed == 3;
 
 if ($errors) {
     say "$errors problem(s) in $zipfile";
