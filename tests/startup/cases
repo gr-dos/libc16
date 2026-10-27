@@ -7,6 +7,10 @@ memory  0  memory
 memstk  0  memstk
 stktop  0  stktop
 nullstr 0  nullstr
+exitst  5  exitst
+
+# A program with its own entry point instead of the core startup
+ownent  7  ownent
 
 # argc/argv, split as Microsoft C does (crt/args.c)
 argnone 0  args

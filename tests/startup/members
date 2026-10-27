@@ -9,4 +9,6 @@ memory: cstart
 memstk: cstart
 stktop: cstart
 nullstr: cstart
+exitst: cstart exit
+ownent: exit int86 intdos segread strcat strcmp strcpy strlen
 args:   argv args cstart

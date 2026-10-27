@@ -26,6 +26,8 @@ wlink option nodefaultlibs format dos ... library $(LIBC16)/lib/LIBC16.LIB
 
 `-ecc` (making `__cdecl` the default) is **not** supported: the startup calls `main_`.
 
+Other flags that keep the small model and the register convention may be added, such as GR-DOS's `-os -zp1 -j -ei` for its Microsoft C 5.1 sources. Every structure in libc16's headers has the same layout at any `-zp` (`struct find_t` is packed explicitly; the others have no padding at any packing), and no header depends on whether `char` is signed.
+
 ## Calling conventions
 
 ### Public library functions: `__cdecl`
@@ -51,6 +53,7 @@ Global variables are `_name` whether or not they are declared `__cdecl` (*tested
 - `main` is `main_`, with the register convention: `argc` in `AX`, `argv` in `DX`, result in `AX` (*tested* through `tests/run-dos`).
 - The module that defines `main` references `_cstart_`, which links the core startup (*tested*).
 - If `main` takes parameters, the module also references `__argc`, which links the argv members (*tested*; decision 8).
+- A program may instead have its own entry point and no `main`; it then sets up `DS`, `SS`, BSS and the direction flag itself and may use only the members that do not link `cstart` (`docs/spec/startup.md`, "Programs without the startup"; *tested*: `tests/startup/ownent`). GR-DOS's ATTRIB is such a program.
 
 ### Compiler support routines
 
