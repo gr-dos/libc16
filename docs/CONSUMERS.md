@@ -13,9 +13,10 @@ Inventory of what each candidate consumer needs from a C runtime (DESIGN.md §7�
 | `gr-dos/tar16` | `ac2c8c4e928e` | **large** | about 45 functions, including `malloc`, `calloc`, `free`, `stat`, `utime`, `localtime`, `strftime`, `tzset`, `mkdir`, `chmod` |
 | `gr-dos/gr-dos` ATTRIB | `5b94dff6` | small, own entry (ATTRIBA) | `bdos`, `close`, `filelength`, `int86`, `intdos`, `intdosx`, `segread`, `strcat`, `strcmp`, `strcpy`, `strlen`; no `_cstart_` |
 | `gr-dos/gr-dos` MEM | `5b94dff6` | small | `exit`, `int86`, `int86x`, `intdos`, `intdosx`, `kbhit`, `segread`, `strcpy`, `_psp` |
+| `gr-dos/gr-dos` FDISK | `978f93d2` | small | `bdos`, `exit`, `getch`, `putch`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `_dos_setvect`, `strcat`, `strchr`, `strcmp`, `strcpy`, `strlen`, `strncpy`, `memset`, `isalpha`, `isdigit`, `libc16_ltoa` |
 | `tico-edit/tico16` | `5769a9a6bc9d` | **compact** | `malloc`, `realloc`, `free`, `int86`, `intdosx`, `segread`, `_dos_*` file and vector functions, `_harderr`, `_fmemcpy`, `memmove`, `sprintf` and others |
 
-GR-DOS's ATTRIB and MEM are Microsoft's MS-DOS 4.00 sources (Microsoft C 5.1), as GR-DOS builds them with Open Watcom C, listed from the call sites rather than an Open Watcom build. Every other program also references `_cstart_`, `__argc` (all of them take `argc`/`argv`) and `_small_code_` or `_big_code_`, a model marker that `-zl` leaves out.
+GR-DOS's ATTRIB, MEM and FDISK are Microsoft's MS-DOS 4.00 sources (Microsoft C 5.1), as GR-DOS builds them with Open Watcom C, listed from the call sites rather than an Open Watcom build. Every other program also references `_cstart_`, `__argc` (all of them take `argc`/`argv`) and `_small_code_` or `_big_code_`, a model marker that `-zl` leaves out.
 
 ## Observations
 
@@ -61,6 +62,8 @@ GR-DOS (M3, DESIGN.md §8) replaces its own runtime, `compat/crt`, with libc16 0
 |---|---|---|---|
 | `ATTRIB.EXE` | 19,446 → 19,369 bytes | 19 → 19 | |
 | `MEM.EXE` | 11,986 → 12,036 bytes | 12 → 12 | 3A40h → 3A70h bytes |
+
+GR-DOS's FDISK ([gr-dos/gr-dos#11](https://github.com/gr-dos/gr-dos/pull/11)) links libc16 0.03, with `getch` and `putch` as macros over `bdos` and `sprintf` replaced by two helpers built on `libc16_ltoa`; 37,694 bytes, where Microsoft's EXEPACKed build is 60,935. libc16 0.04 adds `getch` and `putch` so that the macros can go.
 
 Where a consumer has an assembly version that its tests compare byte for byte with the C program, the assembly had copied Open Watcom's runtime behaviour. It now follows libc16's specs instead: Microsoft's argument splitting, libc16's `errno` mapping and messages, unbuffered streams, `_fullpath` and `getenv` limits.
 

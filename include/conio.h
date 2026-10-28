@@ -7,5 +7,7 @@
 #include <_libc16.h>
 
 int __cdecl kbhit(void);
+int __cdecl getch(void);
+int __cdecl putch(int c);
 
 #endif

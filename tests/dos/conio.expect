@@ -1,0 +1,3 @@
+# getch reads without echo; putch writes 0FFh with function 02h
+/^\[x\xff\]$/
+ok
