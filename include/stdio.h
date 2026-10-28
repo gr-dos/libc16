@@ -58,10 +58,14 @@ FILE * __cdecl fopen(const char *path, const char *mode);
 int    __cdecl fputc(int c, FILE *fp);
 int    __cdecl fputs(const char *s, FILE *fp);
 size_t __cdecl fread(void *ptr, size_t size, size_t nmemb, FILE *fp);
+int    __cdecl fseek(FILE *fp, long offset, int origin);
+long   __cdecl ftell(FILE *fp);
 size_t __cdecl fwrite(const void *ptr, size_t size, size_t nmemb, FILE *fp);
 int    __cdecl getc(FILE *fp);
 int    __cdecl putc(int c, FILE *fp);
 int    __cdecl putchar(int c);
+int    __cdecl remove(const char *path);
+int    __cdecl rename(const char *oldname, const char *newname);
 int    __cdecl ungetc(int c, FILE *fp);
 
 #define feof(fp)   (((fp)->_flag & _IOEOF) != 0)

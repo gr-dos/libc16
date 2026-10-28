@@ -3,3 +3,4 @@
 stdio:   cstart close doserr errno fclose fdtab fflush fgetc fgets fopen fputc fputs getc open putc putchar read setmode stderr stdin stdout strcmp strcpy strlen ungetc write
 stdinrd: cstart doserr errno fdtab fgetc fgets fputs read stdin stdout strlen write
 rdwr:    cstart close doserr errno fclose fdtab fgetc fopen fread fwrite memcmp memcpy memset open read stdout ungetc write
+seek:    close cstart doserr errno fclose fdtab fgetc fopen fputc fputs fread fseek ftell fwrite lseek memcmp memcpy open read strlen ungetc write

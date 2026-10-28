@@ -1,3 +1,4 @@
 # Each test program links only the members it calls.
 
 files: chmod close cstart doserr dosfind dostime errno fdtab findfrst fullpath getenv getfattr i4d i4m localtim memcpy memset mkdir open setfattr stat stricmp strpbrk strrchr timecal tzdata tzset u4d utime write
+rename: access chmod close cstart doserr errno fdtab memcmp mkdir open read remove rename strlen strpbrk unlink write
