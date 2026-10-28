@@ -8,8 +8,8 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 ## Sources
 
-- INT 21h functions 0Bh (check input status), 19h (get drive), 1Ah (set disk transfer area), 2Fh (get disk transfer area), 47h (get current directory), 4Eh (find first) and 4Fh (find next), all DOS 2.0; the environment segment at PSP offset 2Ch: Ralf Brown's Interrupt List; MS-DOS 2.0 `SYSCALL.DOC`.
-- The interfaces of Microsoft C 5.1's `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`, `_dos_getvect`, `_dos_setvect`, `_dos_findfirst`, `_dos_findnext`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `getenv` and `_fullpath`, the `FP_SEG` and `FP_OFF` macros, and the layouts of `struct find_t`, `union REGS` and `struct SREGS`: the Microsoft C 5.1 run-time library reference. GR-DOS's ATTRIB and MEM, from the MS-DOS 4.00 source, are the call sites (`docs/CONSUMERS.md`).
+- INT 21h functions 02h (character output), 06h (direct console I/O), 08h (character input without echo), 0Bh (check input status), 19h (get drive), 1Ah (set disk transfer area), 2Fh (get disk transfer area), 47h (get current directory), 4Eh (find first) and 4Fh (find next), all DOS 2.0; the environment segment at PSP offset 2Ch: Ralf Brown's Interrupt List; MS-DOS 2.0 `SYSCALL.DOC`.
+- The interfaces of Microsoft C 5.1's `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`, `_dos_getvect`, `_dos_setvect`, `_dos_findfirst`, `_dos_findnext`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`, the `FP_SEG` and `FP_OFF` macros, and the layouts of `struct find_t`, `union REGS` and `struct SREGS`: the Microsoft C 5.1 run-time library reference. GR-DOS's ATTRIB, MEM and FDISK, from the MS-DOS 4.00 source, are the call sites (`docs/CONSUMERS.md`).
 - C89 7.10.4.4 (`getenv`).
 - Open Watcom C library documentation for `_harderr` with a handler that returns its action, and for `MK_FP`; Ralf Brown's Interrupt List for INT 24h (registers on entry, the stack it runs on, the functions a handler may call, the return codes in `AL`).
 
@@ -73,6 +73,14 @@ Macros. `MK_FP(seg, off)` is a `void __far *` pointing at `seg:off`, as in Open 
 ## `int kbhit(void)`
 
 `<conio.h>`. Returns non-zero if a character is waiting at standard input, and 0 if not, without reading it (INT 21h function 0Bh). As with that function, DOS checks for Ctrl+C (or Ctrl+Break) first.
+
+## `int getch(void)`
+
+`<conio.h>`. Reads one character from standard input without echoing it and returns it, 0 to 255 (INT 21h function 08h). It waits for a character if none is waiting. A key with no character (a function or cursor key) is read as two characters, 0 and then its scan code, as DOS gives them. As with function 08h, DOS checks for Ctrl+C (or Ctrl+Break). Unlike Microsoft's, there is no `ungetch`.
+
+## `int putch(int c)`
+
+`<conio.h>`. Writes the character `c` (its low byte) to standard output and returns it, as an `unsigned char` (0 to 255). It uses INT 21h function 06h, which does not check for Ctrl+C. Function 06h takes the byte 0FFh as a request for input, so 0FFh is written with function 02h instead.
 
 ## `char *getenv(const char *name)`
 

@@ -6,12 +6,12 @@ is its own library member, so a program links only what it calls, and
 no Open Watcom runtime code is used (`docs/LICENSE-PROVENANCE.md`).
 MIT licensed.
 
-It provides what the `gr-dos/*16` utilities and GR-DOS's ATTRIB and MEM
-need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv` and `exit`; string and memory functions;
+It provides what the `gr-dos/*16` utilities and GR-DOS's ATTRIB, MEM and
+FDISK need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv` and `exit`; string and memory functions;
 `open`/`read`/`write`/`lseek` and friends with text mode; unbuffered
 stdio streams with `fopen`, `fgets`, `fputs` and character I/O;
 `malloc`/`free`; `_dos_findfirst`/`_dos_findnext`, `int86`/`int86x`,
-`intdos`/`intdosx`, `segread`, `bdos`, `kbhit`, `getenv` and `_fullpath`; the compiler's 32- and 64-bit helpers; and
+`intdos`/`intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`; the compiler's 32- and 64-bit helpers; and
 `libc16_ultoa`/`libc16_ltoa` in place of `printf`, which libc16 does not
 have. `docs/spec/` describes each function; `docs/ABI.md` is the
 contract with the programs that link it.
