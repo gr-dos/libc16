@@ -1,15 +1,16 @@
-# Spec: file status, permissions and directories
+# Spec: file status, permissions, names and directories
 
-**Headers:** `<sys/stat.h>`, `<sys/types.h>`, `<sys/utime.h>`, `<io.h>`, `<direct.h>`  
-**Members:** `stat`, `chmod`, `mkdir`, `utime`, and the private `dostime` (DOS dates and times to and from `time_t`)  
+**Headers:** `<sys/stat.h>`, `<sys/types.h>`, `<sys/utime.h>`, `<io.h>`, `<direct.h>`, `<stdio.h>`  
+**Members:** `stat`, `chmod`, `mkdir`, `utime`, `rename`, `unlink`, `remove`, and the private `dostime` (DOS dates and times to and from `time_t`)  
 **Tests:** `tests/files` (run by `tests/run-dos`, in every model)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
 
 ## Sources
 
-- The interfaces of Microsoft C 5.1's `stat`, `chmod`, `mkdir` and `utime`, `struct stat`, `struct utimbuf` and the `S_IF*` and `S_I*` values: the Microsoft C 5.1 run-time library reference.
-- INT 21h functions 19h (current drive), 2Ah and 2Ch (date and time), 39h (make directory), 3Dh and 3Eh (open, close), 4300h and 4301h (attributes), 4Eh (find first), 5701h (set a file's date and time), and DOS's packed date and time: Ralf Brown's Interrupt List.
+- C89 7.9.4.1 and 7.9.4.2 (`remove`, `rename`).
+- The interfaces of Microsoft C 5.1's `stat`, `chmod`, `mkdir`, `utime`, `rename`, `unlink` and `remove`, `struct stat`, `struct utimbuf` and the `S_IF*` and `S_I*` values: the Microsoft C 5.1 run-time library reference.
+- INT 21h functions 19h (current drive), 2Ah and 2Ch (date and time), 39h (make directory), 3Dh and 3Eh (open, close), 41h (delete file), 4300h and 4301h (attributes), 56h (rename file), 4Eh (find first), 5701h (set a file's date and time), and DOS's packed date and time: Ralf Brown's Interrupt List.
 - `docs/spec/time.md` for `time_t` and the time zone; `docs/spec/io.md` for `errno`.
 
 ## DOS dates and times
@@ -40,11 +41,25 @@ Creates the directory `path` (INT 21h 39h). Returns 0, or -1 with `errno`: `EACC
 
 Sets the modification time of the file `path` to `times->modtime` (`times->actime` is ignored; DOS records no access time), or to the current date and time if `times` is a null pointer. The file is opened for reading (so read-only files can be changed too), its date and time set with INT 21h 5701h, and closed. Returns 0, or -1 with `errno`: from opening the file (`ENOENT`; `EACCES` for a directory, which DOS cannot open), or `EINVAL` if `times->modtime` is before 1980 or after 2107 in local time.
 
+## `int rename(const char *oldname, const char *newname)`
+
+Renames the file `oldname` to `newname` (INT 21h 56h); either may include a drive and directory, so a file can be moved to another directory on the same drive. Returns 0, or -1 with `errno`:
+
+- `ENOENT` if `oldname` does not exist or the directory of either name does not, and also if either name contains `*` or `?`, which are refused without calling DOS;
+- `EACCES` if `newname` already exists (DOS does not replace it, and `oldname` is unchanged), or the rename is otherwise refused;
+- `EXDEV` if the names are on different drives.
+
+C89 leaves the existing-`newname` case to the implementation; a program that wants to replace a file removes it first.
+
+## `int unlink(const char *path)`, `int remove(const char *path)`
+
+Delete the file `path` (INT 21h 41h); `remove` is C89's name and behaves identically. Return 0, or -1 with `errno`: `ENOENT` if there is no such file, or `path` contains `*` or `?` (refused without calling DOS); `EACCES` if the file is read-only, or `path` names a directory.
+
 ## Constraints
 
-- All are `__cdecl` (`docs/ABI.md`). `stat` and `utime` link the time zone members (`docs/spec/time.md`), and so `getenv`; `chmod` and `mkdir` do not.
+- All are `__cdecl` (`docs/ABI.md`). `stat` and `utime` link the time zone members (`docs/spec/time.md`), and so `getenv`; `chmod`, `mkdir`, `rename`, `unlink` and `remove` do not.
 - 8086 instructions only.
 
 ## Tests
 
-`tests/files` covers: `stat` of a file, a read-only file, a hidden file, a program, a directory, `.` and `..`, the root in each spelling, a missing file and a wildcard; `st_mtime` against the time `utime` set, with `TZ` unset and with `EST5EDT` across both daylight saving changes; `utime` with a null pointer (the time DOS's clock gives), on a read-only file, a directory, a missing file and out-of-range times; `chmod` both ways; `mkdir` of a new, an existing and an unreachable directory. DOSBox-X keeps the attributes of a file that has had any in a second host file and from then on reports that file's size and time for it, so the tests check sizes and times only on files whose attributes they never change.
+`tests/files` covers: `stat` of a file, a read-only file, a hidden file, a program, a directory, `.` and `..`, the root in each spelling, a missing file and a wildcard; `st_mtime` against the time `utime` set, with `TZ` unset and with `EST5EDT` across both daylight saving changes; `utime` with a null pointer (the time DOS's clock gives), on a read-only file, a directory, a missing file and out-of-range times; `chmod` both ways; `mkdir` of a new, an existing and an unreachable directory; `rename` of a file in place and into another directory (the contents follow it), onto an existing file (which fails and leaves both), of a missing file, into a missing directory, to another drive, and with wildcards in either name; `unlink` and `remove` of a file, a read-only file, a directory, a missing file and a wildcard. DOSBox-X keeps the attributes of a file that has had any in a second host file and from then on reports that file's size and time for it, so the tests check sizes and times only on files whose attributes they never change.

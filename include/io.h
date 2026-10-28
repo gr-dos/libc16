@@ -13,7 +13,10 @@ long __cdecl filelength(int fd);
 long __cdecl lseek(int fd, long offset, int origin);
 int  __cdecl open(const char *path, int oflag, ...);
 int  __cdecl read(int fd, void *buf, unsigned n);
+int  __cdecl remove(const char *path);
+int  __cdecl rename(const char *oldname, const char *newname);
 int  __cdecl setmode(int fd, int mode);
+int  __cdecl unlink(const char *path);
 int  __cdecl write(int fd, const void *buf, unsigned n);
 
 #endif
