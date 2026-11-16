@@ -34,6 +34,8 @@ char * __cdecl strncpy(char *dst, const char *src, size_t n);
 int    __cdecl strnicmp(const char *s1, const char *s2, size_t n);
 char * __cdecl strpbrk(const char *s, const char *accept);
 char * __cdecl strrchr(const char *s, int c);
+size_t __cdecl strcspn(const char *s, const char *reject);
+char * __cdecl strstr(const char *s, const char *find);
 
 void __far * __cdecl _fmemcpy(void __far *dst, const void __far *src, size_t n);
 

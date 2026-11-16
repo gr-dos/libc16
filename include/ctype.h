@@ -7,6 +7,7 @@
 
 int __cdecl isalnum(int c);
 int __cdecl isalpha(int c);
+int __cdecl isascii(int c);
 int __cdecl iscntrl(int c);
 int __cdecl isdigit(int c);
 int __cdecl isgraph(int c);

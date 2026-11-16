@@ -31,6 +31,7 @@ int main(void)
         bad += !ispunct(c) != !(graph && !alpha && !digit);
         bad += tolower(c) != (upper ? c + 32 : c);
         bad += toupper(c) != (lower ? c - 32 : c);
+        bad += !isascii(c) != !in(c, 0, 0x7f);
         if (bad) {
             t_puts("wrong at ");
             t_putu((unsigned)c);
@@ -39,5 +40,7 @@ int main(void)
         }
     }
     CHECK(bad == 0);
+    /* values outside EOF to 255 are in no class */
+    CHECK(!isascii(256) && !isascii(0x180) && !isascii(-2) && !isascii(-32767 - 1));
     return done();
 }

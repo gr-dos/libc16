@@ -48,6 +48,7 @@ extern FILE __cdecl __libc16_stderr;
 #define stdout (&__libc16_stdout)
 #define stderr (&__libc16_stderr)
 
+void   __cdecl clearerr(FILE *fp);
 int    __cdecl fclose(FILE *fp);
 int    __cdecl feof(FILE *fp);
 int    __cdecl ferror(FILE *fp);
@@ -70,6 +71,7 @@ int    __cdecl ungetc(int c, FILE *fp);
 
 #define feof(fp)   (((fp)->_flag & _IOEOF) != 0)
 #define ferror(fp) (((fp)->_flag & _IOERR) != 0)
+#define clearerr(fp) ((void)((fp)->_flag &= ~(_IOEOF | _IOERR)))
 /* Microsoft's, not C89's; a macro only */
 #define fileno(fp) ((fp)->_fd)
 #define getc(fp)    fgetc(fp)

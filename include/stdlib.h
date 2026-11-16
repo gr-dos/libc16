@@ -22,6 +22,7 @@ typedef unsigned size_t;
  * directory and a separator and 8.3 name. */
 #define _MAX_PATH 80
 
+void          __cdecl abort(void);
 int           __cdecl atoi(const char *nptr);
 void *        __cdecl calloc(size_t n, size_t size);
 void          __cdecl exit(int status);
@@ -29,7 +30,10 @@ void          __cdecl free(void *p);
 char *        __cdecl _fullpath(char *buf, const char *path, size_t size);
 char *        __cdecl getenv(const char *name);
 void *        __cdecl malloc(size_t size);
+void          __cdecl qsort(void *base, size_t nmemb, size_t size,
+                            int (__cdecl *compar)(const void *, const void *));
 void *        __cdecl realloc(void *p, size_t size);
+long          __cdecl strtol(const char *nptr, char **endptr, int base);
 unsigned long __cdecl strtoul(const char *nptr, char **endptr, int base);
 
 #endif

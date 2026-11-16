@@ -1,7 +1,9 @@
-# stat, chmod, mkdir, utime, rename, unlink and remove (docs/spec/files.md)
+# stat, fstat, chmod, mkdir, chdir, getcwd, utime, rename, unlink and remove (docs/spec/files.md)
 
 set TZ=
 files 0 files
+fstat 0 fstat
+dirs 0 dirs
 set TZ=EST5EDT
 filesest 0 files
 set TZ=
