@@ -65,6 +65,8 @@ GR-DOS (M3, DESIGN.md §8) replaces its own runtime, `compat/crt`, with libc16 0
 
 GR-DOS's FDISK ([gr-dos/gr-dos#11](https://github.com/gr-dos/gr-dos/pull/11)) links libc16 0.03, with `getch` and `putch` as macros over `bdos` and `sprintf` replaced by two helpers built on `libc16_ltoa`; 37,694 bytes, where Microsoft's EXEPACKed build is 60,935. libc16 0.04 adds `getch` and `putch` so that the macros can go.
 
+`gr-dos/patch16`, a port of GNU `patch` 2.2, needs `rename`, `unlink`, `remove`, `fseek` and `ftell` besides what libc16 already had; libc16 0.05 adds them.
+
 Where a consumer has an assembly version that its tests compare byte for byte with the C program, the assembly had copied Open Watcom's runtime behaviour. It now follows libc16's specs instead: Microsoft's argument splitting, libc16's `errno` mapping and messages, unbuffered streams, `_fullpath` and `getenv` limits.
 
 crcsum16 found the `DGROUP:0` bug fixed in `77b402e`: its first string was at offset 0 and so compared equal to `NULL`.

@@ -12,4 +12,9 @@
 
 extern FILE __libc16_streams[STREAMS];
 
+/* After a DOS error err in fseek or ftell: moves fp's handle back to
+ * here, or if that fails too, discards the buffer, the pushed-back byte
+ * and a byte kept by read. Sets errno from err and returns -1 (ftell). */
+int __libc16_seekback(FILE *fp, unsigned long here, unsigned err);
+
 #endif

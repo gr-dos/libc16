@@ -1,7 +1,8 @@
-# stat, chmod, mkdir and utime (docs/spec/files.md)
+# stat, chmod, mkdir, utime, rename, unlink and remove (docs/spec/files.md)
 
 set TZ=
 files 0 files
 set TZ=EST5EDT
 filesest 0 files
 set TZ=
+rename 0 .\rename
