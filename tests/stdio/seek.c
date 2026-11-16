@@ -8,6 +8,14 @@
 #include <sys/stat.h>
 #include "check.h"
 
+/* tests/io/seekfail.asm: make INT 21h function 42h calls fail with DOS
+ * error 6 (EBADF) */
+void __cdecl seekfail_install(void);
+void __cdecl seekfail_remove(void);
+void __cdecl seekfail(int origin, unsigned skip);
+void __cdecl seekfail_after(unsigned skip);
+unsigned __cdecl seekfail_count(void);
+
 #define SIZE 600
 #define CTLZ 0x1a
 
@@ -318,10 +326,137 @@ static void write_streams(void)
     CHECK(file_is("W.TXT", "a\r\nB\r\nzy", 8));
 }
 
+/* Seek errors (docs/spec/stdio.md): a text stream with a buffer, a byte
+ * kept by read and a pushed-back byte, after 10 bytes are read. */
+#define READ 10
+#define CALLS 6
+/* text-mode ftell may seek once for each \n in the buffer */
+#define MAXSKIP 300
+
+static FILE *setup(void)
+{
+    FILE *fp = fopen("E.TXT", "r");
+    unsigned k;
+
+    if (fp == NULL)
+        return NULL;
+    for (k = 0; k < READ; k++)
+        fgetc(fp);
+    ungetc('Q', fp);
+    return fp;
+}
+
+/* Exactly as setup left it: the position, the pushed-back byte, then the
+ * rest of the file, the buffer and the kept byte included. */
+static int unchanged(FILE *fp)
+{
+    unsigned k;
+
+    if (feof(fp) || ferror(fp) || ftell(fp) != pos[READ] - 1 || fgetc(fp) != 'Q')
+        return 0;
+    for (k = READ; k < nch; k++)
+        if (fgetc(fp) != ch[k])
+            return 0;
+    return fgetc(fp) == EOF;
+}
+
+/* Call i: four fseeks with targets in the file, one with a target before
+ * the start that only SEEK_END's DOS calls reveal, and ftell. */
+static long call(FILE *fp, unsigned i)
+{
+    switch (i) {
+    case 0: return fseek(fp, 5L, SEEK_SET);
+    case 1: return fseek(fp, -3L, SEEK_CUR);
+    case 2: return fseek(fp, -10L, SEEK_END);
+    case 3: return fseek(fp, 0L, SEEK_END);
+    case 4: return fseek(fp, -(SIZE + 1L), SEEK_END);
+    default: return ftell(fp);
+    }
+}
+
+/* What call i returns with no DOS error */
+static long success(unsigned i)
+{
+    return i == 4 ? -1L : i == 5 ? pos[READ] - 1 : 0L;
+}
+
+static void seek_errors(void)
+{
+    FILE *fp;
+    unsigned i, skip, n;
+    long r;
+
+    generate(2);
+    raw[126] = 'a';
+    raw[127] = '\r';
+    raw[128] = 'x';
+    write_raw("E.TXT", SIZE);
+    model(SIZE);
+
+    seekfail_install();
+    /* One DOS seek fails, the first, the second and so on: the handle can
+     * always be moved back, so the stream is unchanged. */
+    for (i = 0; i < CALLS; i++) {
+        for (skip = 0; skip < MAXSKIP; skip++) {
+            fp = setup();
+            CHECK(fp != NULL);
+            seekfail(-2, skip);
+            errno = 0;
+            r = call(fp, i);
+            n = seekfail_count();
+            seekfail(-1, 0);
+            if (n == 0) {
+                /* past the call's last seek */
+                CHECK(r == success(i));
+                if (i == 4)
+                    CHECK(errno == EINVAL && unchanged(fp));
+                if (i == 5)
+                    CHECK(unchanged(fp));
+                CHECK(fclose(fp) == 0);
+                break;
+            }
+            AT(r == -1L && errno == EBADF, "one seek error, result", i * 100 + skip);
+            AT(unchanged(fp), "one seek error, stream", i * 100 + skip);
+            CHECK(fclose(fp) == 0);
+        }
+        CHECK(skip < MAXSKIP);
+    }
+
+    /* Every DOS seek fails from the first, the second and so on, so moving
+     * the handle back may fail too: never success, and a later fseek
+     * works. */
+    for (i = 0; i < CALLS; i++) {
+        for (skip = 0; skip < MAXSKIP; skip++) {
+            fp = setup();
+            CHECK(fp != NULL);
+            seekfail_after(skip);
+            errno = 0;
+            r = call(fp, i);
+            n = seekfail_count();
+            seekfail(-1, 0);
+            if (n == 0) {
+                CHECK(r == success(i));
+                CHECK(fclose(fp) == 0);
+                break;
+            }
+            AT(r == -1L && errno == EBADF, "seek errors, result", i * 100 + skip);
+            AT(!feof(fp) && !ferror(fp), "seek errors, indicators", i * 100 + skip);
+            AT(fseek(fp, 0L, SEEK_SET) == 0 && fgetc(fp) == ch[0] && ftell(fp) == pos[1],
+                "seek errors, then fseek", i * 100 + skip);
+            CHECK(fclose(fp) == 0);
+        }
+        CHECK(skip < MAXSKIP);
+    }
+    seekfail_remove();
+}
+
 int main(void)
 {
     text_files();
     binary_file();
     write_streams();
+    bad = 0;
+    seek_errors();
+    CHECK(bad == 0);
     return done();
 }

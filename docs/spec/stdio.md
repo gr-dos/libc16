@@ -50,12 +50,21 @@ A stream's **position** is the offset in the file, in bytes, of the next byte a 
 - **A byte pushed back by `ungetc`** moves the position back by one byte, in either mode, until it is read again or discarded. (In text mode C89 leaves the position unspecified here; one byte back is where a `\n` from `\r\n`, or any other byte, would be read again.) At position 0 there is no position before it.
 - **Output is unbuffered,** so a write stream's position is its handle's.
 
-- **`long ftell(FILE *fp)`:** the stream's position. With a byte pushed back at position 0 it returns -1L with `errno` `EINVAL`; if DOS cannot report the handle's position, -1L with `errno` as `docs/spec/io.md` maps the error. `ftell` changes nothing in the stream: its buffer, pushed-back byte, indicators, the handle's position and a byte kept by `read` are as they were.
+- **`long ftell(FILE *fp)`:** the stream's position. With a byte pushed back at position 0 it returns -1L with `errno` `EINVAL`; if a DOS call it makes fails, -1L with `errno` as `docs/spec/io.md` maps the error. `ftell` changes nothing in the stream: its buffer, pushed-back byte, indicators, the handle's position and a byte kept by `read` are as they were when it returns, unless a DOS error leaves the position indeterminate ("Seek errors").
 - **`int fseek(FILE *fp, long offset, int origin)`:** sets the position to `offset` bytes from the start (`SEEK_SET`), from the position `ftell` would return (`SEEK_CUR`), or from the end of the file (`SEEK_END`), and returns 0. Offsets count the file's bytes in text mode too, so any position `ftell` returned may be passed back with `SEEK_SET`, and `SEEK_CUR` and `SEEK_END` work as in binary mode. A position past the end of the file is allowed: reads there find the end of the file, and a write extends the file.
   - The target is worked out before the stream is changed. An `origin` other than the three, or a target before the start of the file, returns -1 with `errno` `EINVAL` and leaves the stream exactly as it was, pushed-back byte included. So does a failed `SEEK_CUR` from a pushed-back byte at position 0.
   - On success the buffer is emptied, a pushed-back byte and any byte kept by `read` are discarded, and the end-of-file indicator is cleared. The error indicator is not changed (C89 clears it only in `clearerr` and `rewind`).
-  - If DOS fails the seek, `fseek` returns -1 with `errno` as `docs/spec/io.md` maps the error; the buffer and a pushed-back byte are discarded.
+  - If a DOS call fails, `fseek` returns -1 with `errno` as `docs/spec/io.md` maps the error, and the stream is as it was ("Seek errors").
   - A stream opened with `a` still writes at the end of the file (`O_APPEND`); `fseek` changes only where `ftell` and the next write start counting from.
+
+### Seek errors
+
+A DOS seek (INT 21h 42h) that fails does not move the handle, but an earlier one in the same call may have: `fseek` with `SEEK_END` moves the handle to the end to find its offset, and `ftell` in text mode may move it to look at the file. When a DOS call fails, `fseek` and `ftell` move the handle back to where it was before the call, if they had moved it, and then:
+
+- **If the handle is where it was** (it never moved, or moving it back worked), the stream is exactly as before the call: its buffer, pushed-back byte, a byte kept by `read`, the indicators and its position. The call returns -1 (`fseek`) or -1L (`ftell`) with `errno` from the first DOS error.
+- **If moving the handle back fails too,** the stream's position is indeterminate. The buffer, the pushed-back byte and a byte kept by `read` are discarded, so that the stream reads from wherever the handle is, the indicators are unchanged, and the call still returns -1 or -1L with `errno` from the first DOS error. A later successful `fseek` makes the stream's position definite again.
+
+Neither function reports success after any DOS call in it has failed.
 
 ## Constraints
 
