@@ -1,3 +1,4 @@
 # Each test program links only the string members it calls.
 
 string: cstart fmemcpy memcmp memcpy memmove memset strcat strchr strcmp strcpy strerror stricmp strlen strlwr strncat strncmp strncpy strnicmp strpbrk strrchr
+search: cstart strcmp strcspn strstr

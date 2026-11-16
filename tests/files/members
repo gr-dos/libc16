@@ -2,3 +2,5 @@
 
 files: chmod close cstart doserr dosfind dostime errno fdtab findfrst fullpath getenv getfattr i4d i4m localtim memcpy memset mkdir open setfattr stat stricmp strpbrk strrchr timecal tzdata tzset u4d utime write
 rename: access chmod close cstart doserr errno fdtab memcmp mkdir open read remove rename strlen unlink write
+fstat: close cstart doserr dosfind dostime errno fdtab findfrst fstat fullpath getenv i4d i4m localtim lseek memcmp memcpy memset open read stat stricmp strlen strpbrk strrchr timecal tzdata tzset u4d utime write
+dirs: chdir close cstart doserr errno fdtab getcwd memset mkdir open strcmp
