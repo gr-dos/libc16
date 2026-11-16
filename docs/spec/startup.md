@@ -50,7 +50,14 @@ Everything else, including `DGROUP`'s layout and the memory block left to DOS, i
 
 **Null pointer:** no object of the program may be at offset 0 of `DGROUP`, because a pointer to it would be a null pointer (C99 6.3.2.3). The startup reserves the start of `DGROUP`, before `CONST`, with at least 2 bytes that hold no C object, whatever the size of the code and the order of the other modules.
 
-**Segments:** declares `dosseg` ordering; `DGROUP` groups `LIBC16_NULL` (class `BEGDATA`, word aligned, 2 bytes: the reserved start, which `dosseg` puts first in `DGROUP` whatever the order of the modules), `CONST`, `CONST2`, `_DATA` (class `DATA`), `LIBC16_INIT_BEGIN`, `LIBC16_INIT`, `LIBC16_INIT_END` (class `DATA`, in that order), `_BSS` (class `BSS`), `STACK` (class `STACK`, combine type stack, default 2048 bytes) and `LIBC16_STACK_END` (class `STACK`, byte aligned, empty).
+The reserved bytes are 0 and start on a paragraph, so `DGROUP`'s frame, the segment the startup loads into `DS`, is their paragraph and they are at `DS:0000`, whatever the size of the code and other segments before `DGROUP`. These are two separate properties:
+
+- *No valid object at offset 0* is what C needs, and holds as long as something non-empty comes first in `DGROUP`.
+- *What is at `DS:0000`* is a property of the layout. When the reserved bytes were only word aligned, `DGROUP`'s frame was the paragraph containing them, and the bytes from `DS:0000` up to them, as many as 14, could be the last bytes of the code or of a far data segment. A near write through a null pointer then changed code. With the bytes on a paragraph it changes the reserved bytes instead.
+
+Reading or writing through a null pointer is still undefined behaviour, and libc16 promises nothing about it: not that `DS:0000` reads as 0 when the program runs (an earlier null write may have changed it), nor that such a write is detected. The alignment costs at most 15 bytes of padding between the code and `DGROUP` in the `.EXE`, and at most one paragraph of memory.
+
+**Segments:** declares `dosseg` ordering; `DGROUP` groups `LIBC16_NULL` (class `BEGDATA`, paragraph aligned, 2 bytes of 0: the reserved start, which `dosseg` puts first in `DGROUP` whatever the order of the modules), `CONST`, `CONST2`, `_DATA` (class `DATA`), `LIBC16_INIT_BEGIN`, `LIBC16_INIT`, `LIBC16_INIT_END` (class `DATA`, in that order), `_BSS` (class `BSS`), `STACK` (class `STACK`, combine type stack, default 2048 bytes) and `LIBC16_STACK_END` (class `STACK`, byte aligned, empty).
 
 **Top of the stack:** `__libc16_stack_top` (C name, declared `extern char __cdecl __libc16_stack_top[]`; symbol `___libc16_stack_top`) is a label with no storage at the start of `LIBC16_STACK_END`, so its offset in `DGROUP` is the top of the stack for any `option stack=n`: the address step 2 sets `SP` to, and where the program's memory block ends, rounded up to a paragraph (step 3). The heap starts there (`docs/spec/heap.md`). It adds no bytes to a program, so programs that do not use it are unchanged. `tests/startup/check-memory` checks it against the end of `DGROUP` in the map.
 
@@ -96,6 +103,6 @@ A program may have its own entry point instead of `cstart`. It defines no `main`
 - zero every byte from `_edata` to `_end`;
 - clear the direction flag;
 
-and it must terminate the program itself, or through `exit`. In the large model it calls C code far. It should also keep offset 0 of `DGROUP` free of C objects (see "Null pointer"), for example with a 2-byte segment of class `BEGDATA`.
+and it must terminate the program itself, or through `exit`. In the large model it calls C code far. It should also keep offset 0 of `DGROUP` free of C objects (see "Null pointer"), for example with a paragraph-aligned 2-byte segment of class `BEGDATA`.
 
 Such a program may use every member that references no symbol `cstart` defines (`__psp`, `___libc16_stack_top`, `___libc16_argc`, `___libc16_argv`) and is not an init routine: the string functions, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `_dos_findfirst`, `_dos_findnext`, `_fullpath`, the low-level I/O functions of `docs/spec/io.md`, the stdio functions, `libc16_ultoa`, `libc16_ltoa`, `strtoul`, `atoi`, `strftime`, the `<ctype.h>` functions, the compiler support routines and `exit`. The heap (`malloc`, `free`, `realloc`, `calloc`, `strdup`), `getenv` and `_psp` link `cstart`, and so do `tzset`, `localtime`, `stat` and `utime` through `getenv`, so a program with its own entry must not use them. `tests/startup/ownent` is such a program; `tests/check-members` checks that it links no `cstart`.

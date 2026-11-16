@@ -9,6 +9,7 @@ memory: cstart
 memstk: cstart
 stktop: cstart
 nullstr: cstart
+nullodd: cstart
 exitst: cstart exit
 init:   cstart
 ownent: exit int86 intdos segread strcat strcmp strcpy strlen

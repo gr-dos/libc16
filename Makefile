@@ -99,13 +99,13 @@ TEST      := $(MB)/tests
 TCFLAGS   := $(WCFLAGS) -Itests/support
 HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
 SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
-STARTUP   := status dirty bss memory args stktop nullstr exitst init argfar
+STARTUP   := status dirty bss memory args stktop nullstr nullodd exitst init argfar
 # ownent has its own entry point, ownstart, instead of the core startup.
 OWNENT    := $(TEST)/startup/ownent.EXE $(TEST)/plus/ownent.EXE
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
 SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$(SUITES))))
 SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
-TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj \
+TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj $(TEST)/startup/codeodd.obj \
 	$(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj \
 	$(TEST)/startup/inittab.obj \
 	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj \
@@ -144,6 +144,9 @@ $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP)): $(TEST)/startup/%.EXE: $(TEST)/s
 $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
 # nullstr is linked first, then codepad, which ends the code at a paragraph.
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/nullstr.EXE): $(TEST)/startup/codepad.obj
+# nullodd is linked first, then codeodd, which ends the code one byte past
+# a paragraph.
+$(foreach d,$(TEST)/startup $(PLUS),$(d)/nullodd.EXE): $(TEST)/startup/codeodd.obj
 # init also links its own entries of the init table.
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/init.EXE): $(TEST)/startup/inittab.obj
 
