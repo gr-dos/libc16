@@ -21,8 +21,10 @@ _TEXT   ends
 ; The start of DGROUP, so that no C object is at offset 0, where a pointer
 ; to it would be a null pointer (spec, "Null pointer"). Under dosseg the
 ; linker puts class BEGDATA first in DGROUP, even before the DATA
-; segments of objects it sees before this one.
-LIBC16_NULL segment word public 'BEGDATA'
+; segments of objects it sees before this one. Paragraph aligned, so that
+; DGROUP's frame starts at these 2 bytes of 0: DS:0000 is them, not the
+; end of the code or of a far data segment before DGROUP.
+LIBC16_NULL segment para public 'BEGDATA'
         dw      0
 LIBC16_NULL ends
 
