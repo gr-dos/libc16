@@ -3,8 +3,23 @@
 #include <errno.h>
 #include <stdio.h>
 #include "io16.h"
+#include "stdio16.h"
 
 #define SEEK_FAILED(r) ((unsigned)((r) >> 16) == 0xffff)
+
+int __libc16_seekback(FILE *fp, unsigned long here, unsigned err)
+{
+    int fd = fp->_fd;
+
+    if (SEEK_FAILED(__libc16_dos_seek(fd, (long)here, SEEK_SET))) {
+        /* The position is not known: read from wherever the handle is. */
+        fp->_cnt = 0;
+        fp->_flag &= ~_IOUNGET;
+        if ((unsigned)fd < FD_MAX)
+            __libc16_fdflags[fd] &= ~FD_PENDING;
+    }
+    return __libc16_doserr(err);
+}
 
 long __cdecl ftell(FILE *fp)
 {
@@ -48,9 +63,11 @@ long __cdecl ftell(FILE *fp)
                         back++;
                 }
             } while (q != p);
-            __libc16_dos_seek(fd, (long)here, SEEK_SET);
+            r = __libc16_dos_seek(fd, (long)here, SEEK_SET);
+            if (SEEK_FAILED(r) && err == 0)
+                err = DOS_AX(r);
             if (err)
-                return __libc16_doserr(err);
+                return __libc16_seekback(fp, here, err);
         }
     }
     /* A pushed-back byte is one byte back, and at 0 has no position. */
