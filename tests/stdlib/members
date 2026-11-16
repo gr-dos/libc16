@@ -1,0 +1,5 @@
+# Each test program links only the members it calls.
+
+qsort: cstart i4m memset qsort
+abort: abort close cstart doserr errno fdtab open
+abortchk: close cstart doserr errno fdtab memcmp open read strlen

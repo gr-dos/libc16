@@ -14,7 +14,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 ## Scope
 
-libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) with their C89 semantics, and no others: `fopen`, `fclose`, `fflush`, `fgetc`, `getc`, `fgets`, `fread`, `fputc`, `putc`, `putchar`, `fputs`, `fwrite`, `ungetc`, `fseek`, `ftell`, `feof`, `ferror`, and Microsoft's `fileno`. The formatted functions (`printf` and the rest) are not provided (DESIGN.md §7; decision 3).
+libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) with their C89 semantics, and no others: `fopen`, `fclose`, `fflush`, `fgetc`, `getc`, `fgets`, `fread`, `fputc`, `putc`, `putchar`, `fputs`, `fwrite`, `ungetc`, `fseek`, `ftell`, `feof`, `ferror`, `clearerr`, and Microsoft's `fileno`. The formatted functions (`printf` and the rest) are not provided (DESIGN.md §7; decision 3).
 
 ## Streams
 
@@ -36,6 +36,7 @@ libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) w
 - **`int fputs(const char *s, FILE *fp)`:** writes `s` without its terminator; returns 0, or `EOF` with the error indicator set.
 - **`int ungetc(int c, FILE *fp)`:** pushes back one byte, which the next read returns; clears the end-of-file indicator. Pushing `EOF`, or a second byte before the first is read, fails with `EOF`.
 - **`int feof(FILE *fp)`, `int ferror(FILE *fp)`:** the indicators; also macros.
+- **`void clearerr(FILE *fp)`:** clears the end-of-file and error indicators (C89 7.9.10.1), and nothing else: the buffer, a pushed-back byte and the position are unchanged. Also a macro, which evaluates `fp` once.
 - **`int fileno(FILE *fp)`:** the stream's DOS handle: 0, 1 and 2 for `stdin`, `stdout` and `stderr`. A macro only, as in Microsoft C 5.1's `<stdio.h>` (it is not C89), so it links nothing.
 - **`int getc(FILE *fp)`, `int putc(int c, FILE *fp)`, `int putchar(int c)`:** `fgetc`, `fputc`, and `fputc` to `stdout`; also macros, which evaluate their arguments once.
 

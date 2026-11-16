@@ -26,6 +26,43 @@ GR-DOS's ATTRIB, MEM and FDISK are Microsoft's MS-DOS 4.00 sources (Microsoft C 
 - **errno.** Open Watcom's headers reach `errno` through `__get_errno_ptr`; libc16's headers define their own.
 - **64-bit.** Only `df16` needs 64-bit helpers so far (`__U8M`, `__U8DQ`, `__U8DR`).
 
+## Tcl16 (#12)
+
+`gr-dos/tcl16` ports Tcl 6.7 (and Tiny Tcl) in the large model. Its M1 and M2 reports list what linking it with libc16 0.04 left undefined. As of 0.05, the gaps were:
+
+| Function | In 0.05 | 0.06 |
+|---|---|---|
+| `fseek`, `ftell` | yes (`docs/spec/stdio.md`, `tests/stdio/seek`) | |
+| `strtol`, `strcspn`, `strstr`, `qsort`, `abort`, `clearerr` | no | added |
+| `getcwd`, `chdir`, `fstat`, `isascii` | no | added |
+| `environ` | no | deferred |
+| `opendir`, `readdir`, `closedir` | no | deferred: Tcl16-local adapter |
+| `strtod`, `sscanf`, `sprintf`, the `printf` family | no | out of scope (decision 3; no floating point) |
+| `system`, `_mktemp` | no | out of scope (#12) |
+
+Sizes of the new members in bytes of code, from `wdis` of each object. A program pays only for the members it calls:
+
+| Member | Small | Compact | Large | Also links |
+|---|---|---|---|---|
+| `strtol` | 158 | 188 | 190 | `strtoul`, `errno` |
+| `strcspn` | 39 | 43 | 43 | |
+| `strstr` | 55 | 61 | 61 | |
+| `qsort` | 222 | 258 | 259 | nothing |
+| `abort` | 18 + 31 data | 20 + 31 | 20 + 31 | nothing |
+| `clearerr` | 12 | 15 | 15 | nothing (the macro links nothing at all) |
+| `isascii` | 19 | 19 | 19 | |
+| `fstat` | 296 | 299 | 303 | `dostime`, the time zone members and `getenv`, as `stat` does |
+| `getcwd` | 107 | 124 | 126 | `errno`, `doserr` |
+| `chdir` | 25 | 25 | 27 | `errno`, `doserr` |
+
+Decisions on the DOS and POSIX extensions:
+
+- **`getcwd`, `chdir`:** included. They are Microsoft C's, small, and each is one or two DOS calls. `getcwd` with a null buffer fails with `EINVAL`, where Microsoft's allocates. That keeps the heap out of every program that calls it.
+- **`fstat`:** included. It is Microsoft C's, and the same size and dependencies as `stat`: it links the time zone members for its times.
+- **`isascii`:** included as a function like the other `<ctype.h>` members, which have no macros (`docs/spec/ctype.md`). It is a few bytes, and costs nothing unless called.
+- **`environ`:** deferred. A `char **environ` has to be built before `main`, from an init routine (decision 8), into memory that grows with the environment, so from the heap. Its layout would become ABI, and a program that changes it would expect `getenv` to see the change, which `getenv` (reading the PSP's environment) does not. Tcl16 needs only to enumerate the environment for its `env` array. A small, documented enumerator (for example `libc16_envnext`, over the PSP's environment block, needing no heap) is the likely shape, decided with Tcl16's M3.
+- **`opendir`, `readdir`, `closedir`:** deferred. Tcl16's M1 report already proposes an adapter over `_dos_findfirst`/`_dos_findnext`, local to Tcl16. A libc16 `DIR` would need the heap or a fixed table, and POSIX's `d_name` and `rewinddir` add little for DOS programs. It can be revisited if a second consumer needs it.
+
 ## Using libc16
 
 A consumer gets libc16 from a release (DESIGN.md §3 and §9):

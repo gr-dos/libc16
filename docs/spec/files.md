@@ -1,7 +1,7 @@
 # Spec: file status, permissions, names and directories
 
 **Headers:** `<sys/stat.h>`, `<sys/types.h>`, `<sys/utime.h>`, `<io.h>`, `<direct.h>`, `<stdio.h>`  
-**Members:** `stat`, `chmod`, `mkdir`, `utime`, `rename`, `unlink`, `remove`, and the private `dostime` (DOS dates and times to and from `time_t`)  
+**Members:** `stat`, `fstat`, `chmod`, `mkdir`, `chdir`, `getcwd`, `utime`, `rename`, `unlink`, `remove`, and the private `dostime` (DOS dates and times to and from `time_t`)  
 **Tests:** `tests/files` (run by `tests/run-dos`, in every model)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
@@ -12,6 +12,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - INT 21h functions 19h (current drive), 2Ah and 2Ch (date and time), 39h (make directory), 3Dh and 3Eh (open, close), 4300h and 4301h (attributes), 4Eh (find first), 5701h (set a file's date and time), and DOS's packed date and time: Ralf Brown's Interrupt List.
 - `rename`, `remove`: C89 7.9.4.1 and 7.9.4.2. The interfaces of Microsoft C 5.1's `rename`, `remove` and `unlink`, and the headers that declare them: the Microsoft C 5.1 run-time library reference.
 - INT 21h functions 41h (delete file) and 56h (rename file), and their error codes: Ralf Brown's Interrupt List.
+- `fstat`, `getcwd`, `chdir`: the Microsoft C 5.1 run-time library reference; INT 21h functions 3Bh (set current directory), 42h (move file pointer), 4400h (IOCTL, get device information), 47h (get current directory) and 5700h (get a file's date and time): Ralf Brown's Interrupt List.
 - `docs/spec/time.md` for `time_t` and the time zone; `docs/spec/io.md` for `errno`.
 
 ## DOS dates and times
@@ -42,6 +43,34 @@ Creates the directory `path` (INT 21h 39h). Returns 0, or -1 with `errno`: `EACC
 
 Sets the modification time of the file `path` to `times->modtime` (`times->actime` is ignored; DOS records no access time), or to the current date and time if `times` is a null pointer. The file is opened for reading (so read-only files can be changed too), its date and time set with INT 21h 5701h, and closed. Returns 0, or -1 with `errno`: from opening the file (`ENOENT`; `EACCES` for a directory, which DOS cannot open), or `EINVAL` if `times->modtime` is before 1980 or after 2107 in local time.
 
+## `int fstat(int fd, struct stat *buf)`
+
+Fills `*buf` for the open handle `fd` and returns 0, or returns -1 with `errno` `EBADF` if `fd` is not an open handle. What it reports depends on whether the handle is a device (INT 21h 4400h, bit 7 of `DX` set) or a file:
+
+| Field | File | Device |
+|---|---|---|
+| `st_mode` | `S_IFREG` and octal 0666 (`S_IREAD` and `S_IWRITE` for owner, group and other; a handle does not tell whether the file is read-only) | `S_IFCHR` and octal 0666 |
+| `st_size` | the file's length in bytes | 0 |
+| `st_mtime`, `st_atime`, `st_ctime` | the date and time DOS has for the file (INT 21h 5700h), as a `time_t` as for `stat` | 0 |
+| `st_dev`, `st_rdev` | the file's drive, 0 for A: (bits 0–5 of the device information) | `fd` |
+
+`st_ino` 0, `st_nlink` 1, `st_uid` and `st_gid` 0, as for `stat`. `S_IFCHR` is 2000h, Microsoft's value.
+
+`fstat` changes nothing about the handle: its position, mode and a byte kept by a text-mode `read` (`docs/spec/io.md`) are as they were. The handle's position is restored after finding the length; if a DOS call fails, `fstat` returns -1 with `errno` as `docs/spec/io.md` maps the error.
+
+## `char *getcwd(char *buf, int n)`
+
+Stores the current directory of the current drive in `buf` as a full path, the drive letter, `:` and `\` first (`C:\`, `C:\TCL\LIB`), with no `\` at the end except in a root directory, and returns `buf`. The drive is from INT 21h 19h and the directory from 47h, as DOS stores it. Returns a null pointer with `errno`:
+
+- `ERANGE`: the path and its terminator do not fit in `n` bytes (`n` of 0 or less included). The contents of `buf` are then unspecified.
+- `EINVAL`: `buf` is a null pointer. Microsoft's `getcwd` allocates a buffer then; libc16's does not, so that `getcwd` does not link the heap.
+
+A buffer of `_MAX_PATH` (80) bytes always suffices.
+
+## `int chdir(const char *path)`
+
+Makes `path` the current directory of its drive (INT 21h 3Bh) and returns 0. A drive letter in `path` changes that drive's current directory, not the current drive, as in Microsoft C. Returns -1 with `errno` `ENOENT` if `path` does not exist or is not a directory, and otherwise as `docs/spec/io.md` maps the error.
+
 ## Names with wildcards
 
 A file name containing `*` or `?` names no file here. `rename`, `unlink` and `remove` refuse one with `ENOENT` without calling DOS, so that DOS never applies the call to several files.
@@ -69,11 +98,11 @@ Delete the file `path` (INT 21h 41h). Both return 0, or -1 with `errno`:
 
 ## Headers
 
-`<stdio.h>` declares `rename` and `remove` (C89). `<io.h>` declares `rename`, `remove` and `unlink`, as Microsoft's does.
+`<stdio.h>` declares `rename` and `remove` (C89). `<io.h>` declares `rename`, `remove` and `unlink`, as Microsoft's does. `<direct.h>` declares `getcwd` and `chdir`, and `<sys/stat.h>` `fstat` and `S_IFCHR`.
 
 ## Constraints
 
-- All are `__cdecl` (`docs/ABI.md`). `stat` and `utime` link the time zone members (`docs/spec/time.md`), and so `getenv`; `chmod`, `mkdir`, `rename`, `unlink` and `remove` do not.
+- All are `__cdecl` (`docs/ABI.md`). `stat` and `utime` link the time zone members (`docs/spec/time.md`), and so `getenv`; `fstat` does too, for its times. `chmod`, `mkdir`, `chdir`, `getcwd`, `rename`, `unlink` and `remove` do not.
 - 8086 instructions only.
 
 ## Tests
@@ -81,3 +110,5 @@ Delete the file `path` (INT 21h 41h). Both return 0, or -1 with `errno`:
 `tests/files` covers: `stat` of a file, a read-only file, a hidden file, a program, a directory, `.` and `..`, the root in each spelling, a missing file and a wildcard; `st_mtime` against the time `utime` set, with `TZ` unset and with `EST5EDT` across both daylight saving changes; `utime` with a null pointer (the time DOS's clock gives), on a read-only file, a directory, a missing file and out-of-range times; `chmod` both ways; `mkdir` of a new, an existing and an unreachable directory. DOSBox-X keeps the attributes of a file that has had any in a second host file and from then on reports that file's size and time for it, so the tests check sizes and times only on files whose attributes they never change.
 
 `tests/files/rename` covers: `rename` in place, into another directory and back, with and without drive letters in either case; onto an existing file and an existing directory; from a missing file, into a missing directory, to another drive and with a wildcard in either name, each leaving both names as they were. `unlink` and `remove` of a file, a read-only file, a directory, a missing file and a wildcard.
+
+`tests/files/dirs` covers `getcwd` in the root and in a directory, with buffers of exactly the right size and one byte short, `n` of 0 and a null `buf`; `chdir` into a directory, back with `..`, with a full path, with another drive's letter (which must not change the current drive), and to a missing directory and a file. `tests/files/fstat` covers a file (size, times against `stat`'s, drive), a handle's position and a kept byte left unchanged, a device (handle 2), and closed and invalid handles.

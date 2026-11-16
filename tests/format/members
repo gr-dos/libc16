@@ -6,3 +6,4 @@ ultoa:   cstart ultoa
 ltoa:    cstart ltoa
 strtoul: cstart errno strtoul
 atoi:    cstart atoi
+strtol: cstart errno strtol strtoul

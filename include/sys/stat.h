@@ -9,6 +9,7 @@
 
 #define S_IFMT   0xF000         /* file type */
 #define S_IFDIR  0x4000
+#define S_IFCHR  0x2000
 #define S_IFREG  0x8000
 #define S_IREAD  0x0100         /* the owner's permissions */
 #define S_IWRITE 0x0080
@@ -28,6 +29,7 @@ struct stat {
     time_t st_ctime;
 };
 
+int __cdecl fstat(int fd, struct stat *buf);
 int __cdecl stat(const char *path, struct stat *buf);
 
 #endif

@@ -9,10 +9,11 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 ## Sources
 
 - C89 7.3 (character handling) and 5.2.1 (the basic character sets), in the "C" locale.
+- Microsoft C 5.1 run-time library reference, for `isascii`, which is not C89's.
 
 ## Functions
 
-`isalnum`, `isalpha`, `iscntrl`, `isdigit`, `isgraph`, `islower`, `isprint`, `ispunct`, `isspace`, `isupper`, `isxdigit`, `tolower` and `toupper`, with C89 semantics in the "C" locale, which is the only locale. Each takes an `int` whose value is `EOF` or representable as an `unsigned char`; any other value is undefined in C89, and libc16 treats it as not belonging to any class (and `tolower` and `toupper` return it unchanged).
+`isalnum`, `isalpha`, `iscntrl`, `isdigit`, `isgraph`, `islower`, `isprint`, `ispunct`, `isspace`, `isupper`, `isxdigit`, `tolower` and `toupper`, with C89 semantics, and Microsoft's `isascii`, in the "C" locale, which is the only locale. Each takes an `int` whose value is `EOF` or representable as an `unsigned char`; any other value is undefined in C89, and libc16 treats it as not belonging to any class (and `tolower` and `toupper` return it unchanged).
 
 | Function | True for |
 |---|---|
@@ -25,6 +26,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 | `isprint` | 20h–7Eh |
 | `isgraph` | 21h–7Eh |
 | `ispunct` | 21h–7Eh except letters and digits |
+| `isascii` | 00h–7Fh (Microsoft's; not C89) |
 
 The classification functions return non-zero for true (not necessarily 1) and 0 for false. Bytes 80h–FFh and `EOF` are in no class. `tolower` converts `A`–`Z` to `a`–`z` and returns any other value unchanged; `toupper` the reverse.
 
@@ -35,4 +37,4 @@ The classification functions return non-zero for true (not necessarily 1) and 0 
 
 ## Tests
 
-`tests/ctype` checks every function against the table above for every value from `EOF` to 255.
+`tests/ctype` checks every function, `isascii` included, against the table above for every value from `EOF` to 255.

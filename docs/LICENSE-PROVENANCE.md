@@ -51,6 +51,7 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `dosfind`, `findfrst`, `findnext`, `dosopen`, `doscreat`, `dosclose`, `dosread`, `doswrite`, `getfattr`, `setfattr`, `getvect`, `setvect`, `harderr`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `getenv`, `fullpath` | `crt/*.c`, `crt/*.asm`, `crt/dos16.h` | `docs/spec/dos.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `getch`, `putch` | `crt/getch.asm`, `crt/putch.asm` | `docs/spec/dos.md` | Claude (Opus 5.5), the GR-DOS FDISK port session; human review pending | Written from the spec; see "`getch` and `putch`" |
 | `rename`, `unlink`, `remove`, `fseek`, `ftell` | `crt/*.c` | `docs/spec/files.md`, `docs/spec/stdio.md` | Specs and tests: Claude (Opus 5.5), design session. Code: Claude (Opus 5.5), separate session. Human review pending | Written from the spec; see "`rename`, `unlink`, `remove`, `fseek` and `ftell`" |
+| `strtol`, `strcspn`, `strstr`, `qsort`, `abort`, `clearerr`, `isascii`, `fstat`, `getcwd`, `chdir` | `crt/*.c` | `docs/spec/format.md`, `string.md`, `stdlib.md`, `stdio.md`, `ctype.md`, `files.md` | Specs and tests: Claude (Opus 5.5), design session. Code: Claude (Opus 5.5), separate session. Human review pending | Written from the spec; see "The Tcl16 functions" |
 | `isalnum`, `isalpha`, `iscntrl`, `isdigit`, `isgraph`, `islower`, `isprint`, `ispunct`, `isspace`, `isupper`, `isxdigit`, `tolower`, `toupper` | `crt/*.c` | `docs/spec/ctype.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `tzdata`, `tzset`, `timecal`, `localtim` | `crt/*.c`, `crt/time16.h` | `docs/spec/time.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `dostime`, `stat`, `chmod`, `mkdir`, `utime` | `crt/*.c` | `docs/spec/files.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
@@ -113,6 +114,15 @@ After review, the design session specified what a DOS error in `fseek` or `ftell
 
 No Open Watcom runtime source or header was read and none of its libraries was disassembled.
 
+### The Tcl16 functions
+
+`strtol`, `strcspn`, `strstr`, `qsort`, `abort`, `clearerr`, `isascii`, `fstat`, `getcwd` and `chdir` (0.06) are for `gr-dos/tcl16` (#12), which ports Tcl 6.7 and Tiny Tcl. They were written clean-room, in two sessions, as `rename` and the others were:
+
+- **Design session.** It wrote the specs (`docs/spec/format.md`, `string.md`, the new `stdlib.md`, `stdio.md`, `ctype.md` and `files.md`), the header declarations and the tests, committed before any code. Its sources: C89 7.3, 7.9.10.1, 7.10.1.5, 7.10.4.1, 7.10.5.2, 7.11.5.3 and 7.11.5.7; Microsoft's documentation of `abort`, `isascii`, `fstat`, `getcwd` and `chdir`; Ralf Brown's Interrupt List; and libc16's own specs. It checked `tests/format/strtol`'s expected values with the host's `strtoll`, limited to 32 bits. Of `gr-dos/tcl16` it read only the M1 and M2 reports, for the list of missing functions; it read no Tcl, Tiny Tcl, Open Watcom runtime or other C library source.
+- **Implementation session.** It worked in a copy of the repository without git history, told to read nothing outside it, including any other repository, Tcl source, other C libraries and Open Watcom's runtime source, headers and libraries. It reported reading nothing outside the copy. Its sources: the specs and tests; libc16's existing members, which it did not change; C89 and Ralf Brown's Interrupt List from memory; textbook heapsort; and its own DOSBox-X experiments.
+
+No Open Watcom runtime source or header was read and none of its libraries was disassembled.
+
 ## Similarity audit
 
 `scripts/similarity-audit` (run by `make audit`, in CI and before each release; written for libc16, MIT) compares the code of every member of each library with the DOS runtime library of the same memory model in the pinned Open Watcom snapshot: `LIBC16.LIB` with `lib286/dos/clibs.lib` and `lib286/maths.lib`, `LIBC16C.LIB` with `clibc.lib` and `mathc.lib`, and `LIBC16L.LIB` with `clibl.lib` and `mathl.lib`, each with the objects in `lib286/dos`. It reads both as OMF records, takes the bytes of code-class segments, leaves out every byte a fixup patches, and cuts the rest into overlapping 8-byte runs. For each libc16 member it prints only the fraction of its runs found in the one Open Watcom member that shares most of them (*best*) and in the whole library (*any*). Nothing is disassembled, and no Open Watcom names, bytes or code are printed or kept. Before scoring, a control check requires every judged member to be found whole in the libc16 library itself. A member with at least 16 runs and a best score above 0.50 fails the audit. Members with fewer runs (a few instructions) are listed but not judged.
@@ -122,6 +132,8 @@ Results for 0.03: in `LIBC16.LIB` 83 of the 117 members are long enough to judge
 Results for 0.04: the new members, `getch` (too short to judge) and `putch` (17 runs), score 0.00 in each library. 84 of the 119 members of `LIBC16.LIB` are judged, and 89 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still 0.12 (`stricmp`).
 
 Results for 0.05: the new members score at most 0.03 (`rename`); `unlink` and `remove` score 0.00. 89 of the 124 members of `LIBC16.LIB` are judged, and 94 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still 0.12 (`stricmp`, small).
+
+Results for 0.06: the new members score at most 0.07 (`strtol`, compact and large: a call to `strtoul` and its sign handling); `abort`, `chdir`, `clearerr` and `isascii` are too short to judge and score 0.00. 95 of the 134 members of `LIBC16.LIB` are judged, and 100 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still 0.12 (`stricmp`, small).
 
 Results for the first release, with the snapshot of decision 1: 42 of the 65 members are long enough to judge. Their highest best score is 0.12 (`stricmp`); most are under 0.05. Four short members score higher: `i8ls` and `i8rs` (0.64, 11 runs), `u8rs` (0.73, 11 runs) and `putc` (1.00, 3 runs). They are a 64-bit shift loop and a jump to `fputc`, which have few possible encodings. The full report is `docs/AUDIT.txt` in each release archive.
 

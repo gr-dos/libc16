@@ -1,0 +1,5 @@
+# qsort and abort (docs/spec/stdlib.md)
+
+qsort    0 qsort
+abort    3 abort
+abortchk 0 abortchk
