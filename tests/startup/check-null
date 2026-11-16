@@ -15,10 +15,11 @@ check-null - check that no object is at offset 0 of DGROUP
 =head1 DESCRIPTION
 
 Reads each wlink map and checks that the first segment of DGROUP is the
-startup's C<LIBC16_NULL>, at least 2 bytes long, and that every other
-DGROUP segment with any bytes starts at DGROUP offset 2 or later, so that
-no object of the program is at offset 0, where a pointer to it would be a
-null pointer (docs/spec/startup.md, "Null pointer"). Offsets are from
+startup's C<LIBC16_NULL>, at least 2 bytes long, at offset 0 of DGROUP's
+frame (it is paragraph aligned, so its bytes are at C<DS:0000>), and that
+every other DGROUP segment with any bytes starts at DGROUP offset 2 or
+later, so that no object of the program is at offset 0, where a pointer
+to it would be a null pointer (docs/spec/startup.md, "Null pointer"). Offsets are from
 DGROUP's frame, the segment of its address in the map. Prints one line per
 map and exits 1 if any fails.
 
@@ -44,6 +45,8 @@ for my $map (@ARGV) {
   my $first = $segments[0];
   push @bad, "first segment $first->{name}" unless $first->{name} eq 'LIBC16_NULL';
   push @bad, "$first->{name} size $first->{size}" if $first->{size} < 2;
+  push @bad, sprintf '%s at offset %d', $first->{name}, $first->{linear} - $frame * 16
+    if $first->{linear} != $frame * 16;
   for my $segment (@segments[1 .. $#segments]) {
     my $offset = $segment->{linear} - $frame * 16;
     push @bad, sprintf '%s at offset %d', $segment->{name}, $offset if $segment->{size} && $offset < 2;
