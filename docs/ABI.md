@@ -125,11 +125,17 @@ The core startup (`crt/cstart.asm`) needs DOS 2.0. Before `main` it:
 - zeroes BSS (*tested*) and sets `_psp` to the PSP segment (*tested*);
 - runs the init table (below).
 
+When `main` returns, or the program calls `exit`, the termination table runs (below).
+
 In the compact and large models `DS` is `DGROUP` when `main` is called. When `main` returns, its value is the exit status, through INT 21h function 4Ch (*tested*).
 
 ### Init table
 
 Optional members run code before `main` by adding a function pointer to segment `LIBC16_INIT` (class `DATA`, in `DGROUP`), declaring `LIBC16_INIT_BEGIN`, `LIBC16_INIT` and `LIBC16_INIT_END` in that order. The pointer is near (2 bytes) in the small and compact models and far (4 bytes, offset first) in the large model, like the routine. Init routines take no arguments and must preserve `SI`, `DI`, `BP` and `SS`, and `DS` in the small model; a default-convention C function does. Entries run in link order.
+
+### Termination table
+
+Optional members run code at termination, before INT 21h function 4Ch, the same way: a pointer in segment `LIBC16_EXIT` (class `DATA`, in `DGROUP`), declaring the three init segments and then `LIBC16_EXIT_BEGIN`, `LIBC16_EXIT` and `LIBC16_EXIT_END`, in that order, so that the segments follow the init table whatever the link order. Entries have the init table's size and contract, and run in link order, both when `main` returns (its value is kept as the exit status) and in `exit`, which walks the table without referencing any member that adds to it. `atexit` is one such member (`docs/spec/startup.md`). A routine may be called again if it, or something it calls, calls `exit`.
 
 ### argv
 
@@ -150,7 +156,7 @@ No DOS 2.0 system is available to run the tests on: Microsoft's MIT release of M
 
 ## Segments
 
-The startup declares `dosseg` ordering. `DGROUP` holds the startup's 2-byte, paragraph-aligned `LIBC16_NULL`, `CONST`, `CONST2`, `_DATA`, the init table, `_BSS`, `STACK` and the empty `LIBC16_STACK_END`, in that order. `LIBC16_NULL` has class `BEGDATA`, which `dosseg` puts first in `DGROUP` even when the linker sees the program's own objects, and their `DATA` segments, before the startup; so no object of the program is at offset 0, where a pointer to it would be a null pointer (*tested*: `tests/startup/check-null` on every test program's map, and `tests/startup/nullstr.c`, whose code ends at a paragraph). Being paragraph aligned, `LIBC16_NULL` starts `DGROUP`'s frame, so its bytes are at `DS:0000` rather than code or far data that precedes `DGROUP` (*tested*: `check-null`, and `tests/startup/nullodd.c`, whose code ends one byte past a paragraph). That changes what a near null-pointer write damages, not whether such a write is defined (`docs/spec/startup.md`, "Null pointer"). Without it, a program whose code ended at a paragraph had its first `CONST` object, or its first `_BSS` object if it had no constant data, at offset 0. wlink defines `_edata` (start of BSS) and `_end` (end of BSS); the startup's `___libc16_stack_top` labels the top of the stack, where the heap starts (*tested*).
+The startup declares `dosseg` ordering. `DGROUP` holds the startup's 2-byte, paragraph-aligned `LIBC16_NULL`, `CONST`, `CONST2`, `_DATA`, the init table, the termination table, `_BSS`, `STACK` and the empty `LIBC16_STACK_END`, in that order. `LIBC16_NULL` has class `BEGDATA`, which `dosseg` puts first in `DGROUP` even when the linker sees the program's own objects, and their `DATA` segments, before the startup; so no object of the program is at offset 0, where a pointer to it would be a null pointer (*tested*: `tests/startup/check-null` on every test program's map, and `tests/startup/nullstr.c`, whose code ends at a paragraph). Being paragraph aligned, `LIBC16_NULL` starts `DGROUP`'s frame, so its bytes are at `DS:0000` rather than code or far data that precedes `DGROUP` (*tested*: `check-null`, and `tests/startup/nullodd.c`, whose code ends one byte past a paragraph). That changes what a near null-pointer write damages, not whether such a write is defined (`docs/spec/startup.md`, "Null pointer"). Without it, a program whose code ended at a paragraph had its first `CONST` object, or its first `_BSS` object if it had no constant data, at offset 0. wlink defines `_edata` (start of BSS) and `_end` (end of BSS); the startup's `___libc16_stack_top` labels the top of the stack, where the heap starts (*tested*).
 
 ## Known issues
 

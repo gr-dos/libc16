@@ -1,5 +1,5 @@
 /* string.h - libc16 (C89 7.11, and Microsoft C's _fmemcpy, strdup, stricmp,
- * strlwr and strnicmp) */
+ * strlwr, strnicmp and strupr) */
 
 #ifndef _LIBC16_STRING_H
 #define _LIBC16_STRING_H
@@ -36,6 +36,7 @@ char * __cdecl strpbrk(const char *s, const char *accept);
 char * __cdecl strrchr(const char *s, int c);
 size_t __cdecl strcspn(const char *s, const char *reject);
 char * __cdecl strstr(const char *s, const char *find);
+char * __cdecl strupr(char *s);
 
 void __far * __cdecl _fmemcpy(void __far *dst, const void __far *src, size_t n);
 

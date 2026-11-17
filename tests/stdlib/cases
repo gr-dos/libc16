@@ -1,5 +1,11 @@
-# qsort and abort (docs/spec/stdlib.md)
+# qsort, rand, srand and abort (docs/spec/stdlib.md), and atexit
+# (docs/spec/startup.md)
 
 qsort    0 qsort
+rand     0 rand
 abort    3 abort
 abortchk 0 abortchk
+atexit   9 atexit
+atexitx  6 atexitx
+atexit32 0 atexit32
+atexitn  4 atexitn

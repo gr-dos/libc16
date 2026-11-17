@@ -7,11 +7,14 @@ no Open Watcom runtime code is used (`docs/LICENSE-PROVENANCE.md`).
 MIT licensed.
 
 It provides what the `gr-dos/*16` utilities and GR-DOS's ATTRIB, MEM and
-FDISK need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv` and `exit`; string and memory functions;
-`open`/`read`/`write`/`lseek` and friends with text mode; `rename`,
-`unlink`, `remove`, `stat`, `fstat`, `getcwd` and `chdir`; unbuffered stdio
-streams with `fopen`, `fgets`, `fputs`, `fseek`, `ftell`, `clearerr` and
-character I/O; `strtol`, `strtoul`, `qsort` and `abort`;
+FDISK need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv`, `exit`
+and `atexit`; string and memory functions;
+`open`/`read`/`write`/`lseek` and friends with text mode, `isatty`, `dup`
+and `dup2`; `rename`, `unlink`, `remove`, `stat`, `fstat`, `getcwd`,
+`chdir`, `mkdir` and `rmdir`; unbuffered stdio streams with `fopen`,
+`fdopen`, `fgets`, `fputs`, `fseek`, `ftell`, `clearerr` and character
+I/O; `strtol`, `strtoul`, `qsort`, `rand`, `srand` and `abort`; `time`,
+`gmtime`, `localtime` and `strftime`;
 `malloc`/`free`; `_dos_findfirst`/`_dos_findnext`, `int86`/`int86x`,
 `intdos`/`intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`; the compiler's 32- and 64-bit helpers; and
 `libc16_ultoa`/`libc16_ltoa` in place of `printf`, which libc16 does not

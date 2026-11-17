@@ -102,7 +102,7 @@ TEST      := $(MB)/tests
 TCFLAGS   := $(WCFLAGS) -Itests/support
 HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
 SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
-STARTUP   := status dirty bss memory args stktop nullstr nullodd exitst init argfar
+STARTUP   := status dirty bss memory args stktop nullstr nullodd exitst init fini finiex argfar
 # ownent has its own entry point, ownstart, instead of the core startup.
 OWNENT    := $(TEST)/startup/ownent.EXE $(TEST)/plus/ownent.EXE
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
@@ -110,7 +110,7 @@ SUITE_SRCS := $(filter-out tests/startup/%,$(wildcard $(patsubst %,tests/%/*.c,$
 SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
 TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj $(TEST)/startup/codeodd.obj \
 	$(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj \
-	$(TEST)/startup/inittab.obj \
+	$(TEST)/startup/inittab.obj $(TEST)/startup/finitab.obj \
 	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj \
 	$(TEST)/support/testio.obj \
 	$(SUITE_EXES:.EXE=.obj)
@@ -141,7 +141,7 @@ $(PLUS_LIB): $(LIB) $(PLUS)/unused.obj
 # Each program's objects; memstk is memory with 4 KiB more stack.
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memory.EXE $(d)/memstk.EXE): $(TEST)/startup/memory.obj
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/args.EXE $(d)/memory.EXE $(d)/memstk.EXE $(d)/stktop.EXE \
-	$(d)/init.EXE $(d)/argfar.EXE): $(TEST)/support/testio.obj
+	$(d)/init.EXE $(d)/fini.EXE $(d)/finiex.EXE $(d)/argfar.EXE): $(TEST)/support/testio.obj
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memstk.EXE): LDOPTS := option stack=6144
 $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP)): $(TEST)/startup/%.EXE: $(TEST)/startup/%.obj
 $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
@@ -152,6 +152,8 @@ $(foreach d,$(TEST)/startup $(PLUS),$(d)/nullstr.EXE): $(TEST)/startup/codepad.o
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/nullodd.EXE): $(TEST)/startup/codeodd.obj
 # init also links its own entries of the init table.
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/init.EXE): $(TEST)/startup/inittab.obj
+# fini and finiex link their own entries of the termination table.
+$(foreach d,$(TEST)/startup $(PLUS),$(d)/fini.EXE $(d)/finiex.EXE): $(TEST)/startup/finitab.obj
 
 $(SUITE_EXES): $(TEST)/%.EXE: $(TEST)/%.obj $(TEST)/support/testio.obj
 $(OWNENT): $(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj $(TEST)/support/testio.obj

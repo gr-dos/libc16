@@ -10,6 +10,8 @@ nullstr 0  nullstr
 nullodd 0  nullodd
 exitst  5  exitst
 init    0  init
+fini    9  fini
+finiex  6  finiex
 
 # A program with its own entry point instead of the core startup
 ownent  7  ownent

@@ -7,13 +7,10 @@
 #include <sys/stat.h>
 #include "stdio16.h"
 
-FILE __libc16_streams[STREAMS];
-static unsigned char bufs[STREAMS][STREAM_BUF];
-
 FILE * __cdecl fopen(const char *path, const char *mode)
 {
     FILE *fp;
-    int oflag, fd, i;
+    int oflag, fd;
     unsigned char flag;
 
     switch (*mode++) {
@@ -42,18 +39,11 @@ FILE * __cdecl fopen(const char *path, const char *mode)
         errno = EINVAL;
         return NULL;
     }
-    for (i = 0; __libc16_streams[i]._flag != 0; i++) {
-        if (i == STREAMS - 1) {
-            errno = EMFILE;
-            return NULL;
-        }
-    }
+    if ((fp = __libc16_stream()) == NULL)
+        return NULL;
+    /* The slot stays free until _flag is set. */
     if ((fd = open(path, oflag, S_IREAD | S_IWRITE)) == -1)
         return NULL;
-    fp = &__libc16_streams[i];
-    fp->_ptr = fp->_base = bufs[i];
-    fp->_cnt = 0;
-    fp->_bufsiz = STREAM_BUF;
     fp->_fd = fd;
     fp->_flag = flag;
     return fp;
