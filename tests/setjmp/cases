@@ -1,0 +1,3 @@
+# setjmp and longjmp (docs/spec/setjmp.md)
+
+setjmp 0 setjmp
