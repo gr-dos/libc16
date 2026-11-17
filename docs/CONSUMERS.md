@@ -65,7 +65,7 @@ Decisions on the DOS and POSIX extensions:
 
 ## Perl16 (#22)
 
-`gr-dos/perl16` ports Perl 3 in the large model. Its M3 runtime audit (`docs/M3-RUNTIME-AUDIT.md`, sections 6.2 to 6.7) assigns these small C89 and Microsoft C functions to libc16, and libc16 0.08 adds them. `setjmp`/`longjmp`, `system` and the spawn family, and `signal`/`raise` are separate issues; floating point, formatting and `environ` are perl16's or `libkitchen16`'s (that audit, section 11).
+`gr-dos/perl16` ports Perl 3 in the large model. Its M3 runtime audit (`docs/M3-RUNTIME-AUDIT.md`, sections 6.2 to 6.7) assigns these small C89 and Microsoft C functions to libc16, and libc16 0.08 adds them. `system` and the spawn family, and `signal`/`raise` are separate issues; floating point, formatting and `environ` are perl16's or `libkitchen16`'s (that audit, section 11).
 
 Sizes in bytes of code, from `wdis` of each object. A program pays only for the members it calls:
 
@@ -83,7 +83,14 @@ Sizes in bytes of code, from `wdis` of each object. A program pays only for the 
 | `rmdir` | 54 | 55 | 57 | `errno`, `doserr` |
 | `strupr` | 31 | 34 | 34 | |
 
-Changes to existing members:
+0.09 adds `setjmp` and `longjmp` (#19, the audit's sections 6.3 and 7.3). `jmp_buf` is 8 words in every model (`docs/ABI.md`). Each is its own member and links nothing else:
+
+| Member | Small | Compact | Large |
+|---|---|---|---|
+| `setjmp` | 43 | 41 | 42 |
+| `longjmp` | 38 | 40 | 41 |
+
+Changes to existing members in 0.08:
 
 - **`cstart`** grows by 16 bytes in every model (83 / 90 / 93 → 99 / 106 / 109), and **`exit`** by 16 to 18 (10 → 26 / 27 / 28), for walking the termination table. A program that does not call `atexit` links no further member and no data; the table is empty.
 - **`fopen`** moved its stream table and buffers to `streams`. Together they are the same size in the small model (176 bytes) and 30 or 32 bytes more in the compact and large.

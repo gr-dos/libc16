@@ -53,6 +53,7 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `rename`, `unlink`, `remove`, `fseek`, `ftell` | `crt/*.c` | `docs/spec/files.md`, `docs/spec/stdio.md` | Specs and tests: Claude (Opus 5.5), design session. Code: Claude (Opus 5.5), separate session. Human review pending | Written from the spec; see "`rename`, `unlink`, `remove`, `fseek` and `ftell`" |
 | `strtol`, `strcspn`, `strstr`, `qsort`, `abort`, `clearerr`, `isascii`, `fstat`, `getcwd`, `chdir` | `crt/*.c` | `docs/spec/format.md`, `string.md`, `stdlib.md`, `stdio.md`, `ctype.md`, `files.md` | Specs and tests: Claude (Opus 5.5), design session. Code: Claude (Opus 5.5), separate session. Human review pending | Written from the spec; see "The Tcl16 functions" |
 | `atexit`, `rand`, `srand`, `time`, `gmtime`, `fromloc`, `isatty`, `dup`, `dup2`, `fdopen`, `streams`, `rmdir`, `strupr`; changes to `cstart`, `exit`, `fopen` and `timecal` | `crt/*.c`, `crt/*.asm` | `docs/spec/startup.md`, `stdlib.md`, `time.md`, `io.md`, `stdio.md`, `files.md`, `string.md` | Specs and tests: Claude (Opus 5.5), design session. Code: Claude (Opus 5.5), separate session. Human review pending | Written from the spec; see "The perl16 functions" |
+| `setjmp`, `longjmp` | `crt/setjmp.asm`, `crt/longjmp.asm` | `docs/spec/setjmp.md` | Specs and tests: Claude (Opus 5.5), design session. Code: Claude (Opus 5.5), separate session. Human review pending | Written from the spec; see "`setjmp` and `longjmp`" |
 | `isalnum`, `isalpha`, `iscntrl`, `isdigit`, `isgraph`, `islower`, `isprint`, `ispunct`, `isspace`, `isupper`, `isxdigit`, `tolower`, `toupper` | `crt/*.c` | `docs/spec/ctype.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `tzdata`, `tzset`, `timecal`, `localtim` | `crt/*.c`, `crt/time16.h` | `docs/spec/time.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `dostime`, `stat`, `chmod`, `mkdir`, `utime` | `crt/*.c` | `docs/spec/files.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
@@ -135,6 +136,15 @@ No Open Watcom runtime source or header was read and none of its libraries was d
 
 No Open Watcom runtime source or header was read and none of its libraries was disassembled.
 
+### `setjmp` and `longjmp`
+
+`setjmp` and `longjmp` (0.09) are for `gr-dos/perl16` (#19), whose `die`, `eval` and loop control jump across many frames. They were written clean-room, in two sessions, as the perl16 functions of 0.08 were:
+
+- **Design session.** It wrote `docs/spec/setjmp.md`, `<setjmp.h>`, the `jmp_buf` layout and experiments in `docs/ABI.md`, and `tests/setjmp` (with its assembly checks, `sjasm.asm`), committed before any code. Its sources: C89 7.6; Microsoft's documentation of `<setjmp.h>`; libc16's ABI; and its own call-site experiments, compiling C that calls a `__cdecl` `setjmp` in each model and disassembling its own objects with `wdis`. Of `gr-dos/perl16` it read only `docs/M3-RUNTIME-AUDIT.md`. It read no Open Watcom runtime or other C library source.
+- **Implementation session.** It worked in a copy of the repository without git history, told to read nothing outside it. It reported reading only the spec, the ABI, `crt/model.inc`, two existing assembly members for style, and the tests, and running the tools on libc16's own objects. It changed no existing member.
+
+No Open Watcom runtime source or header was read and none of its libraries was disassembled.
+
 ## Similarity audit
 
 `scripts/similarity-audit` (run by `make audit`, in CI and before each release; written for libc16, MIT) compares the code of every member of each library with the DOS runtime library of the same memory model in the pinned Open Watcom snapshot: `LIBC16.LIB` with `lib286/dos/clibs.lib` and `lib286/maths.lib`, `LIBC16C.LIB` with `clibc.lib` and `mathc.lib`, and `LIBC16L.LIB` with `clibl.lib` and `mathl.lib`, each with the objects in `lib286/dos`. It reads both as OMF records, takes the bytes of code-class segments, leaves out every byte a fixup patches, and cuts the rest into overlapping 8-byte runs. For each libc16 member it prints only the fraction of its runs found in the one Open Watcom member that shares most of them (*best*) and in the whole library (*any*). Nothing is disassembled, and no Open Watcom names, bytes or code are printed or kept. Before scoring, a control check requires every judged member to be found whole in the libc16 library itself. A member with at least 16 runs and a best score above 0.50 fails the audit. Members with fewer runs (a few instructions) are listed but not judged.
@@ -146,6 +156,8 @@ Results for 0.04: the new members, `getch` (too short to judge) and `putch` (17 
 Results for 0.05: the new members score at most 0.03 (`rename`); `unlink` and `remove` score 0.00. 89 of the 124 members of `LIBC16.LIB` are judged, and 94 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still 0.12 (`stricmp`, small).
 
 Results for 0.06: the new members score at most 0.07 (`strtol`, compact and large: a call to `strtoul` and its sign handling); `abort`, `chdir`, `clearerr` and `isascii` are too short to judge and score 0.00. 95 of the 134 members of `LIBC16.LIB` are judged, and 100 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still 0.12 (`stricmp`, small).
+
+Results for 0.09: `setjmp` (34 to 36 runs) and `longjmp` (31 to 34) score 0.00 in every library. 107 of the 149 members of `LIBC16.LIB` are judged, and 112 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still `fromloc`'s 0.17.
 
 Results for 0.08: the new members score at most 0.03 (`dup`, small); `atexit`, `exit`, `gmtime` and `srand` are too short to judge. `fromloc`, which is `__libc16_from_local` moved unchanged out of `timecal`, scores 0.12 (small) and 0.17 (compact and large) on its own: a short member (32 to 35 runs) of calendar arithmetic, which inside `timecal` had been diluted by the rest. It is now the library's highest best score, ahead of `stricmp` (0.12, small). 105 of the 147 members of `LIBC16.LIB` are judged, and 110 in `LIBC16C.LIB` and `LIBC16L.LIB`.
 
