@@ -63,6 +63,39 @@ Decisions on the DOS and POSIX extensions:
 - **`environ`:** deferred. A `char **environ` has to be built before `main`, from an init routine (decision 8), into memory that grows with the environment, so from the heap. Its layout would become ABI, and a program that changes it would expect `getenv` to see the change, which `getenv` (reading the PSP's environment) does not. Tcl16 needs only to enumerate the environment for its `env` array. A small, documented enumerator (for example `libc16_envnext`, over the PSP's environment block, needing no heap) is the likely shape, decided with Tcl16's M3.
 - **`opendir`, `readdir`, `closedir`:** deferred. Tcl16's M1 report already proposes an adapter over `_dos_findfirst`/`_dos_findnext`, local to Tcl16. A libc16 `DIR` would need the heap or a fixed table, and POSIX's `d_name` and `rewinddir` add little for DOS programs. It can be revisited if a second consumer needs it.
 
+## Perl16 (#22)
+
+`gr-dos/perl16` ports Perl 3 in the large model. Its M3 runtime audit (`docs/M3-RUNTIME-AUDIT.md`, sections 6.2 to 6.7) assigns these small C89 and Microsoft C functions to libc16, and libc16 0.08 adds them. `setjmp`/`longjmp`, `system` and the spawn family, and `signal`/`raise` are separate issues; floating point, formatting and `environ` are perl16's or `libkitchen16`'s (that audit, section 11).
+
+Sizes in bytes of code, from `wdis` of each object. A program pays only for the members it calls:
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `atexit` | 49 | 51 | 59 | a termination-table entry (2 / 2 / 4) and 66 / 66 / 130 bytes of BSS |
+| `rand` | 47 | 47 | 47 | 4 bytes of BSS, shared with `srand`; no 32-bit helper |
+| `srand` | 17 | 17 | 17 | the same 4 bytes |
+| `time` | 263 | 281 | 293 | `timecal`, `tzset` and `getenv`, so the startup |
+| `gmtime` | 32 | 39 | 41 | `timecal` (not `tzset`); 18 bytes of BSS |
+| `isatty` | 38 | 39 | 39 | `errno` |
+| `dup` | 73 | 76 | 78 | `fdtab`, `errno`, `doserr` |
+| `dup2` | 87 | 90 | 92 | `fdtab`, `errno`, `doserr` |
+| `fdopen` | 148 | 183 | 185 | `streams` (56 / 87 / 87, with the 700 / 720 bytes of BSS that `fopen` had); not `fopen` or `open` |
+| `rmdir` | 54 | 55 | 57 | `errno`, `doserr` |
+| `strupr` | 31 | 34 | 34 | |
+
+Changes to existing members:
+
+- **`cstart`** grows by 16 bytes in every model (83 / 90 / 93 → 99 / 106 / 109), and **`exit`** by 16 to 18 (10 → 26 / 27 / 28), for walking the termination table. A program that does not call `atexit` links no further member and no data; the table is empty.
+- **`fopen`** moved its stream table and buffers to `streams`. Together they are the same size in the small model (176 bytes) and 30 or 32 bytes more in the compact and large.
+- **`timecal`** gave `__libc16_from_local` to a new member, `fromloc` (97 / 108 / 114), which `stat`, `fstat` and `utime` link through `dostime`; together they are 4 to 6 bytes more.
+
+Decisions:
+
+- **`atexit`** uses a termination table like the init table (DESIGN.md decision 8), so `exit` references no `atexit` member. 32 functions, the least C89 allows, in BSS.
+- **`rand`** returns the high 15 bits of a 32-bit LCG (1664525, 1013904223), not C89's example generator, as perl16's audit (section 7.10) asks. perl16 should set `RANDBITS` to 15.
+- **`dup2`** returns 0, as Microsoft C's does, not `fd2` as POSIX's does; callers that test for -1 work with either.
+- **`fdopen`** without `b` or `t` keeps the handle's mode (Microsoft's sets text), so that `fdopen(dup(fd), ...)` reads and writes as `fd` does.
+
 ## Using libc16
 
 A consumer gets libc16 from a release (DESIGN.md §3 and §9):

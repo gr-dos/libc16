@@ -86,20 +86,3 @@ int __libc16_isdst(const struct tm *tm)
     return (tm->tm_yday > start || (tm->tm_yday == start && tm->tm_hour >= 2))
         && (tm->tm_yday < end || (tm->tm_yday == end && tm->tm_hour < 1));
 }
-
-time_t __libc16_from_local(long local)
-{
-    struct tm tm;
-
-    if (!__libc16_tzdone)
-        tzset();
-    /* A wall-clock time in daylight saving time is an hour ahead of
-     * standard time; in the hour that repeats in November, the daylight
-     * one is taken. */
-    if (daylight) {
-        __libc16_civil(local, -3600, &tm);
-        if (__libc16_isdst(&tm))
-            return local - 3600 + timezone;
-    }
-    return local + timezone;
-}

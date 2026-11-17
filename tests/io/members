@@ -1,3 +1,5 @@
 # Each test program links only the members it calls.
 
 io: cstart access chsize close doserr errno fdtab filelen lseek memcmp memset open read setmode write
+isatty: close cstart doserr errno fdtab isatty lseek open write
+dup: close cstart doserr dup dup2 errno fdtab lseek memcmp open read setmode strlen write

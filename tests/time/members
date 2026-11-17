@@ -3,3 +3,5 @@
 
 tz: cstart getenv i4d i4m localtim ltoa timecal tzdata tzset u4d
 strftime: cstart strftime tzdata
+gmtime: cstart gmtime i4d timecal u4d
+clock: args argv cstart getenv gmtime i4d i4m localtim memcmp strcmp time timecal tzdata tzset u4d

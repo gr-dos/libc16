@@ -47,6 +47,17 @@ LIBC16_INIT_END segment word public 'DATA'
 init_limit label word
 LIBC16_INIT_END ends
 
+; The termination table (spec, "Termination table"), after the init
+; table: entries of the same size, walked when main_ returns and by exit.
+LIBC16_EXIT_BEGIN segment word public 'DATA'
+exit_first label word
+LIBC16_EXIT_BEGIN ends
+LIBC16_EXIT segment word public 'DATA'
+LIBC16_EXIT ends
+LIBC16_EXIT_END segment word public 'DATA'
+exit_limit label word
+LIBC16_EXIT_END ends
+
 _BSS    segment word public 'BSS'
         public  __psp, ___libc16_argc, ___libc16_argv
 __psp           dw ?            ; C _psp: PSP segment
@@ -72,7 +83,8 @@ ___libc16_stack_top label byte  ; C __libc16_stack_top: top of the stack
 LIBC16_STACK_END ends
 
 DGROUP  group   LIBC16_NULL, CONST, CONST2, _DATA, LIBC16_INIT_BEGIN, \
-                LIBC16_INIT, LIBC16_INIT_END, _BSS, STACK, LIBC16_STACK_END
+                LIBC16_INIT, LIBC16_INIT_END, LIBC16_EXIT_BEGIN, LIBC16_EXIT, \
+                LIBC16_EXIT_END, _BSS, STACK, LIBC16_STACK_END
 
         extrn   main_:CDIST
         extrn   _edata:byte, _end:byte      ; defined by wlink
@@ -125,13 +137,40 @@ _cstart_:
         rep     stosb
         mov     __psp, dx
 
-; Step 5: call each init entry in link order. Init routines preserve SI
-; and SS; with far data they may change DS, so the table is read through
-; SS.
+; Step 5: call each init entry in link order.
         mov     si, offset DGROUP:init_first
-next_init:
-        cmp     si, offset DGROUP:init_limit
-        jae     run_main
+        mov     di, offset DGROUP:init_limit
+        call    walk
+
+; Steps 6 and 7: main_ under the register convention, then the
+; termination table, then exit with the low byte of main_'s result, which
+; is kept on the stack meanwhile. With far data DS is DGROUP again first,
+; and argv is in CX:BX.
+ifdef FARDATA
+        push    ss
+        pop     ds
+        mov     ax, ___libc16_argc
+        mov     bx, word ptr ___libc16_argv
+        mov     cx, word ptr ___libc16_argv+2
+else
+        mov     ax, ___libc16_argc
+        mov     dx, ___libc16_argv
+endif
+        call    main_
+        push    ax
+        mov     si, offset DGROUP:exit_first
+        mov     di, offset DGROUP:exit_limit
+        call    walk
+        pop     ax
+        mov     ah, 4Ch
+        int     21h
+
+; Calls each table entry from SS:SI up to SS:DI. The routines preserve
+; SI, DI, BP and SS; with far data they may change DS, so the table is
+; read through SS (in the small model DS is DGROUP throughout).
+walk:
+        cmp     si, di
+        jae     walked
 ifdef FARCODE
         call    dword ptr ss:[si]
         add     si, 4
@@ -144,25 +183,9 @@ else
         inc     si
         inc     si
 endif
-        jmp     next_init
-
-; Steps 6 and 7: main_ under the register convention, then exit with the
-; low byte of its result. With far data DS is DGROUP again first, and
-; argv is in CX:BX.
-run_main:
-ifdef FARDATA
-        push    ss
-        pop     ds
-        mov     ax, ___libc16_argc
-        mov     bx, word ptr ___libc16_argv
-        mov     cx, word ptr ___libc16_argv+2
-else
-        mov     ax, ___libc16_argc
-        mov     dx, ___libc16_argv
-endif
-        call    main_
-        mov     ah, 4Ch
-        int     21h
+        jmp     walk
+walked:
+        ret
 _TEXT   ends
 
         end     _cstart_
