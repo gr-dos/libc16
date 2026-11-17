@@ -50,6 +50,7 @@ extern FILE __cdecl __libc16_stderr;
 
 void   __cdecl clearerr(FILE *fp);
 int    __cdecl fclose(FILE *fp);
+FILE * __cdecl fdopen(int fd, const char *mode);
 int    __cdecl feof(FILE *fp);
 int    __cdecl ferror(FILE *fp);
 int    __cdecl fflush(FILE *fp);

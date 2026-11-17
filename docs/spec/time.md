@@ -1,14 +1,15 @@
 # Spec: time
 
 **Header:** `<time.h>`  
-**Members:** `tzset` (with `timezone`, `daylight` and `tzname`), `localtime`, `strftime`, and the private conversions they and `docs/spec/files.md` share  
+**Members:** `tzset` (with `timezone`, `daylight` and `tzname`), `localtime`, `gmtime`, `time`, `strftime`, and the private conversions they and `docs/spec/files.md` share  
 **Tests:** `tests/time` (run by `tests/run-dos`, in every model)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation. `strftime` is formatting code, so a separate session writes it (decision 6); the rest is ordinary library code.
 
 ## Sources
 
-- C89 7.12 (date and time): `time_t`, `struct tm`, `localtime` (7.12.3.4), `strftime` (7.12.3.5), and the "C" locale's names of days and months.
+- C89 7.12 (date and time): `time_t`, `struct tm`, `time` (7.12.2.4), `gmtime` (7.12.3.3), `localtime` (7.12.3.4), `strftime` (7.12.3.5), and the "C" locale's names of days and months.
+- INT 21h functions 2Ah (get date) and 2Ch (get time), and, in the tests only, 2Bh and 2Dh (set date and time): Ralf Brown's Interrupt List. The DOS clock is local time; 2Ah gives years 1980 to 2099.
 - Microsoft C 5.1 run-time library reference: `tzset`, `timezone`, `daylight`, `tzname` and the `TZ` variable.
 - The Gregorian calendar; DOS stores file times as local time (Ralf Brown's Interrupt List, INT 21h function 57h).
 
@@ -33,6 +34,21 @@ If `TZ` is not set, or does not have this form, the zone is UTC with no daylight
 ## `struct tm *localtime(const time_t *t)`
 
 Converts `*t` to local time: `*t` minus `timezone`, plus an hour when daylight saving time applies at that instant. Fills every member of a static `struct tm` (`tm_isdst` 1 or 0), which the next call overwrites, and returns a pointer to it. If `tzset` has not been called, `localtime` calls it first. Every `time_t` from 1970-01-01 (and earlier back to 1901-12-13, the most negative `long`) up to 2038-01-19 has a result; the result is not affected by the range of DOS dates.
+
+## `struct tm *gmtime(const time_t *t)`
+
+Converts `*t` to UTC (C89 7.12.3.3): fills every member of a static `struct tm`, with `tm_isdst` 0, and returns a pointer to it. The next call of `gmtime` overwrites it; `localtime` has its own, so neither call changes the other's result (C89 allows them to share one; libc16's do not, so that `gmtime` does not link `localtime`). Every `time_t` has a result, from 1901-12-13 20:45:52 to 2038-01-19 03:14:07. `TZ`, `timezone` and `daylight` do not affect it.
+
+`gmtime` links the calendar arithmetic that `localtime` uses but not `tzset`, `localtime` or `getenv`, so it does not need the startup (`docs/spec/startup.md`, "Programs without the startup").
+
+## `time_t time(time_t *t)`
+
+Returns the current calendar time (C89 7.12.2.4), and also stores it in `*t` if `t` is not a null pointer. The current time is the DOS date and time (INT 21h 2Ah and 2Ch), which is local time, converted to a `time_t` with the zone's rules as for a file's time (`docs/spec/files.md`, "DOS dates and times"): `*t` minus `timezone` would be the wall-clock time, an hour less in daylight saving time; in the hour that repeats when daylight saving time ends, the time is taken as daylight time. `tzset` is called first if it has not been. Hundredths of a second are dropped.
+
+- **Midnight.** The date and the time are two DOS calls. `time` reads the date, the time, and the date again; if the two dates differ, the time passed midnight between the calls, and it reads the time again, using the second date. So the result is never a day off.
+- **Range.** A DOS date and time later than 2038-01-19 03:14:07 UTC has no `time_t`: `time` then returns `(time_t)-1`, C89's value for a time that is not available, and stores it in `*t` too. Every earlier DOS date and time, from 1980-01-01 00:00:00 local time, has one.
+
+`time` links `tzset`, and so `getenv` and the startup.
 
 ## `size_t strftime(char *s, size_t max, const char *format, const struct tm *tm)`
 
@@ -62,9 +78,13 @@ The members used are those C89 lists for each conversion; values outside their n
 
 ## Constraints
 
-- All are `__cdecl` (`docs/ABI.md`). A program links only the members it calls: `strftime` does not link `localtime`, and neither links the stdio functions.
+- All are `__cdecl` (`docs/ABI.md`). A program links only the members it calls: `strftime` does not link `localtime`, `gmtime` links neither `localtime` nor `tzset`, `time` does not link `localtime` or `gmtime`, and none links the stdio functions.
 - 8086 instructions only (`scripts/check-8086`).
 
 ## Tests
 
 `tests/time` covers: `tzset` with `TZ` unset, `UTC0`, `EST5EDT`, `CET-1`, `NST3:30` and invalid values; `localtime` at 1970, the year 2000, a leap day, the end of a leap year, 2038-01-19 03:14:07 UTC, a negative `time_t`, and either side of both daylight saving transitions; `strftime` with every conversion on several dates, the exact `max` boundary (fits, and one byte short), an empty format, and `%Z` with and without a daylight zone.
+
+`tests/time/gmtime` covers `gmtime` at 0, a leap day and the day after it, the last second of a leap year, -1, -86400, the most negative and most positive `long`, and a few other values (expected fields from the host's `gmtime`), run with `TZ` unset and with `EST5EDT`, which must give the same results. It checks that `gmtime` returns the same static object every time and that a call of `localtime` does not change it, nor `gmtime` `localtime`'s.
+
+`tests/time/clock` sets the DOS date and time (INT 21h 2Bh and 2Dh) and calls `time` at each of: 1980-01-01 00:00:00, either side of both daylight saving changes in 2024 (01:59:58 and 03:00:00 on March 10; 00:59:59, 01:30:00 in the repeated hour, and 02:00:00 on November 3), a leap day's last second, 2000-01-01, July 4 2024 at noon, the last representable second, the one after it, and 2099-12-31 23:59:58. It runs with `TZ` unset and with `EST5EDT` (expected values from the host). It checks that `time(&x)` stores what it returns, that `time` called `tzset` (`daylight` is 1 under `EST5EDT` with no call of `tzset` first), and that `localtime` of the result gives the DOS date and time back. It sets the clock back to where it was at the end.

@@ -4,6 +4,7 @@ set TZ=
 files 0 files
 fstat 0 fstat
 dirs 0 dirs
+rmdir 0 rmdir
 set TZ=EST5EDT
 filesest 0 files
 set TZ=

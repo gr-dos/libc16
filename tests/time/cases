@@ -19,3 +19,15 @@ set TZ=
 
 # strftime (docs/spec/time.md), with no TZ: it sets tzname itself.
 strftime 0 strftime
+
+# gmtime (docs/spec/time.md): TZ must not change it.
+gmtime 0 gmtime
+set TZ=EST5EDT
+gmtimest 0 gmtime
+set TZ=
+
+# time (docs/spec/time.md), from DOS dates and times the test sets
+clock 0 clock utc
+set TZ=EST5EDT
+clockest 0 clock est
+set TZ=

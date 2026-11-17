@@ -2,14 +2,14 @@
 
 **Header:** `<string.h>`  
 **Members:** one per function  
-**Tests:** `tests/string`
+**Tests:** `tests/string` (`strupr` in `tests/string/upper`)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
 
 ## Sources
 
 - C89 7.11 (string handling): `memcmp`, `memcpy`, `memmove`, `memset`, `strcat`, `strchr`, `strcmp`, `strcpy`, `strerror`, `strlen`, `strncat`, `strncmp`, `strncpy`, `strpbrk`, `strrchr`, `strcspn`, `strstr`.
-- Microsoft C 5.1 run-time library reference, for the Microsoft names `strdup`, `stricmp`, `strlwr` and `strnicmp`; Microsoft C 6.0's and Open Watcom's documentation of `_fmemcpy`.
+- Microsoft C 5.1 run-time library reference, for the Microsoft names `strdup`, `stricmp`, `strlwr`, `strupr` and `strnicmp`; Microsoft C 6.0's and Open Watcom's documentation of `_fmemcpy`.
 - `docs/spec/io.md` for the `errno` values `strerror` describes.
 
 ## Standard functions
@@ -21,6 +21,7 @@ Full C89 semantics. In particular: comparisons (`memcmp`, `strcmp`, `strncmp`) c
 - **`char *strdup(const char *s)`:** returns a copy of `s` in memory from `malloc` (`docs/spec/heap.md`), or a null pointer if `malloc` fails.
 - **`int stricmp(const char *s1, const char *s2)`:** as `strcmp`, after converting each character from `A`–`Z` to `a`–`z`; no other characters are changed.
 - **`char *strlwr(char *s)`:** converts `A`–`Z` in `s` to `a`–`z` in place and returns `s`.
+- **`char *strupr(char *s)`:** converts `a`–`z` in `s` to `A`–`Z` in place and returns `s`; no other characters are changed, bytes from 80h up included.
 - **`int strnicmp(const char *s1, const char *s2, size_t n)`:** as `strncmp`, comparing as `stricmp` does.
 - **`void __far *_fmemcpy(void __far *dst, const void __far *src, size_t n)`:** `memcpy` with far pointers, in every model; the objects need not be in `DGROUP`.
 

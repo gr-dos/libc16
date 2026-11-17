@@ -1,7 +1,7 @@
 # Spec: file status, permissions, names and directories
 
 **Headers:** `<sys/stat.h>`, `<sys/types.h>`, `<sys/utime.h>`, `<io.h>`, `<direct.h>`, `<stdio.h>`  
-**Members:** `stat`, `fstat`, `chmod`, `mkdir`, `chdir`, `getcwd`, `utime`, `rename`, `unlink`, `remove`, and the private `dostime` (DOS dates and times to and from `time_t`)  
+**Members:** `stat`, `fstat`, `chmod`, `mkdir`, `rmdir`, `chdir`, `getcwd`, `utime`, `rename`, `unlink`, `remove`, and the private `dostime` (DOS dates and times to and from `time_t`)  
 **Tests:** `tests/files` (run by `tests/run-dos`, in every model)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
@@ -13,6 +13,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - `rename`, `remove`: C89 7.9.4.1 and 7.9.4.2. The interfaces of Microsoft C 5.1's `rename`, `remove` and `unlink`, and the headers that declare them: the Microsoft C 5.1 run-time library reference.
 - INT 21h functions 41h (delete file) and 56h (rename file), and their error codes: Ralf Brown's Interrupt List.
 - `fstat`, `getcwd`, `chdir`: the Microsoft C 5.1 run-time library reference; INT 21h functions 3Bh (set current directory), 42h (move file pointer), 4400h (IOCTL, get device information), 47h (get current directory) and 5700h (get a file's date and time): Ralf Brown's Interrupt List.
+- `rmdir`: the Microsoft C 5.1 run-time library reference; INT 21h function 3Ah (remove directory) and its error codes: Ralf Brown's Interrupt List; and our own experiment under DOSBox-X, where 3Ah fails with error 3 for a missing directory, a missing parent, a file and a name with a wildcard, 5 for a directory that is not empty, and 16 for the current directory and the root.
 - `docs/spec/time.md` for `time_t` and the time zone; `docs/spec/io.md` for `errno`.
 
 ## DOS dates and times
@@ -38,6 +39,15 @@ Sets the read-only attribute of `path` if `pmode` does not include `S_IWRITE`, a
 ## `int mkdir(const char *path)`
 
 Creates the directory `path` (INT 21h 39h). Returns 0, or -1 with `errno`: `EACCES` if it exists or cannot be created, `ENOENT` if the path to it does not exist.
+
+## `int rmdir(const char *path)`
+
+Removes the directory `path` (INT 21h 3Ah), which must be empty. Returns 0, or -1 with `errno`, and on failure nothing is removed:
+
+- `ENOENT`: `path` does not exist, the path to it does not exist, or it contains `*` or `?` (refused without calling DOS, as for `unlink`; "Names with wildcards").
+- `EACCES`: the directory is not empty, or is the current directory of its drive, or a root directory.
+- A file: -1 with `ENOENT` or `EACCES`, as DOS reports it (Microsoft documents `EACCES`; DOSBox-X's DOS gives error 3, `ENOENT`). The file is not removed.
+- Any other DOS error maps as `docs/spec/io.md` says.
 
 ## `int utime(const char *path, struct utimbuf *times)`
 
@@ -73,7 +83,7 @@ Makes `path` the current directory of its drive (INT 21h 3Bh) and returns 0. A d
 
 ## Names with wildcards
 
-A file name containing `*` or `?` names no file here. `rename`, `unlink` and `remove` refuse one with `ENOENT` without calling DOS, so that DOS never applies the call to several files.
+A file name containing `*` or `?` names no file here. `rename`, `unlink`, `remove` and `rmdir` refuse one with `ENOENT` without calling DOS, so that DOS never applies the call to several files.
 
 ## `int rename(const char *oldname, const char *newname)`
 
@@ -98,11 +108,11 @@ Delete the file `path` (INT 21h 41h). Both return 0, or -1 with `errno`:
 
 ## Headers
 
-`<stdio.h>` declares `rename` and `remove` (C89). `<io.h>` declares `rename`, `remove` and `unlink`, as Microsoft's does. `<direct.h>` declares `getcwd` and `chdir`, and `<sys/stat.h>` `fstat` and `S_IFCHR`.
+`<stdio.h>` declares `rename` and `remove` (C89). `<io.h>` declares `rename`, `remove` and `unlink`, as Microsoft's does. `<direct.h>` declares `getcwd`, `chdir`, `mkdir` and `rmdir`, and `<sys/stat.h>` `fstat` and `S_IFCHR`.
 
 ## Constraints
 
-- All are `__cdecl` (`docs/ABI.md`). `stat` and `utime` link the time zone members (`docs/spec/time.md`), and so `getenv`; `fstat` does too, for its times. `chmod`, `mkdir`, `chdir`, `getcwd`, `rename`, `unlink` and `remove` do not.
+- All are `__cdecl` (`docs/ABI.md`). `stat` and `utime` link the time zone members (`docs/spec/time.md`), and so `getenv`; `fstat` does too, for its times. `chmod`, `mkdir`, `rmdir`, `chdir`, `getcwd`, `rename`, `unlink` and `remove` do not.
 - 8086 instructions only.
 
 ## Tests
@@ -112,3 +122,5 @@ Delete the file `path` (INT 21h 41h). Both return 0, or -1 with `errno`:
 `tests/files/rename` covers: `rename` in place, into another directory and back, with and without drive letters in either case; onto an existing file and an existing directory; from a missing file, into a missing directory, to another drive and with a wildcard in either name, each leaving both names as they were. `unlink` and `remove` of a file, a read-only file, a directory, a missing file and a wildcard.
 
 `tests/files/dirs` covers `getcwd` in the root and in a directory, with buffers of exactly the right size and one byte short, `n` of 0 and a null `buf`; `chdir` into a directory, back with `..`, with a full path, with another drive's letter (which must not change the current drive), and to a missing directory and a file. `tests/files/fstat` covers a file (size, times against `stat`'s, drive), a handle's position and a kept byte left unchanged, a device (handle 2), and closed and invalid handles.
+
+`tests/files/rmdir` covers `rmdir` of an empty directory (gone afterwards: `chdir` into it fails), one in another directory, by a path with a drive letter, a directory that is not empty, the current directory, the root, a missing directory, a missing parent, a file and a wildcard; each failure leaves what was there.

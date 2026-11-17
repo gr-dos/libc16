@@ -39,8 +39,10 @@ extern long   __cdecl timezone;
 extern int    __cdecl daylight;
 extern char * __cdecl tzname[2];
 
+struct tm * __cdecl gmtime(const time_t *t);
 struct tm * __cdecl localtime(const time_t *t);
 size_t      __cdecl strftime(char *s, size_t max, const char *format, const struct tm *tm);
+time_t      __cdecl time(time_t *t);
 void        __cdecl tzset(void);
 
 #endif

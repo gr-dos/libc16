@@ -10,22 +10,29 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 - C89 7.9 (input/output), for every function listed here; for `fseek` and `ftell`, 7.9.9.2 and 7.9.9.4, with 7.9.7.11 (`ungetc`'s effect on the file position).
 - The interface of Microsoft C 5.1's `fseek` and `ftell`: the Microsoft C 5.1 run-time library reference.
+- `fdopen`: POSIX.1-2008 and the Microsoft C 5.1 run-time library reference; INT 21h function 4400h (IOCTL, get device information), to tell whether a handle is open: Ralf Brown's Interrupt List.
 - `docs/spec/io.md`, which streams are built on.
 
 ## Scope
 
-libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) with their C89 semantics, and no others: `fopen`, `fclose`, `fflush`, `fgetc`, `getc`, `fgets`, `fread`, `fputc`, `putc`, `putchar`, `fputs`, `fwrite`, `ungetc`, `fseek`, `ftell`, `feof`, `ferror`, `clearerr`, and Microsoft's `fileno`. The formatted functions (`printf` and the rest) are not provided (DESIGN.md §7; decision 3).
+libc16 implements the stream functions its consumers use (`docs/CONSUMERS.md`) with their C89 semantics, and no others: `fopen`, `fdopen`, `fclose`, `fflush`, `fgetc`, `getc`, `fgets`, `fread`, `fputc`, `putc`, `putchar`, `fputs`, `fwrite`, `ungetc`, `fseek`, `ftell`, `feof`, `ferror`, `clearerr`, and Microsoft's `fileno`. The formatted functions (`printf` and the rest) are not provided (DESIGN.md §7; decision 3).
 
 ## Streams
 
 - `stdin`, `stdout` and `stderr` are handles 0, 1 and 2, in the handle's mode (text unless changed with `setmode`). Each is its own member, so a program that uses only `stderr` links only `stderr`.
 - **Output is unbuffered:** every output call reaches DOS (`write`) before it returns. Nothing is lost when a program ends without closing or flushing, and output to `stdout` and `stderr` appears in the order it was written. (C89 7.9.3 allows any stream to be unbuffered.)
 - **Input is buffered**, from `read`, so text-mode translation is `read`'s. `stdin`'s buffer is 128 bytes; a stream from `fopen` has its own.
-- `fopen` streams use a fixed table, so that `fopen` needs no heap: with the standard streams, `FOPEN_MAX` (8) streams can be open at once. A further `fopen` fails with `EMFILE`.
+- `fopen` and `fdopen` streams use one fixed table, so that neither needs the heap: with the standard streams, `FOPEN_MAX` (8) streams can be open at once. A further `fopen` or `fdopen` fails with `EMFILE`. The table and its buffers are a member of their own, so `fopen` does not link `fdopen` and `fdopen` does not link `fopen` or `open`.
 
 ## Functions
 
 - **`FILE *fopen(const char *path, const char *mode)`:** `mode` is `r`, `w` or `a`, optionally followed by `b` (binary; otherwise text). `w` creates or truncates, `a` creates and appends (`O_APPEND`). On failure returns a null pointer with `errno` from `open`. The update modes (`+`) are not supported and fail with `EINVAL`, as does any other mode.
+- **`FILE *fdopen(int fd, const char *mode)`:** a stream, in the table `fopen` uses, over the handle `fd`, which is already open (POSIX; Microsoft's `fdopen`). `mode` is `r`, `w` or `a`, optionally followed by `b` or `t`:
+  - `r` makes a read stream and `w` and `a` a write stream. Neither changes the file: `w` does not truncate it, and nothing is created.
+  - `a` also sets the handle's append mode, as `O_APPEND` does (`docs/spec/io.md`), so each write goes to the end of the file, as for `fopen`'s `a`.
+  - `b` sets the handle to binary mode and `t` to text mode, as `setmode` does. With neither, the handle keeps its mode. (Microsoft's sets text mode then, from its default `_fmode`; libc16 keeps the mode, so that a stream over a handle from `dup` reads and writes as the original handle does.)
+  
+  The stream reads from, and writes at, the handle's position; its indicators are clear and it has nothing pushed back. `fileno` gives `fd`, and `fclose` closes `fd`. On failure `fdopen` returns a null pointer, leaving the handle open and its mode unchanged: `EINVAL` for any other `mode` (`+` included, as for `fopen`); `EBADF` if `fd` is not an open handle (checked with INT 21h 4400h), or is negative or 20 or more; `EMFILE` if the table is full. `fdopen` does not check that the handle was opened for reading or writing as `mode` says; a read or write that DOS refuses sets the stream's error indicator, as for any stream.
 - **`int fclose(FILE *fp)`:** closes the stream and its handle; 0, or `EOF` if `close` fails. The standard streams may be closed too.
 - **`int fflush(FILE *fp)`:** 0. Output is unbuffered, so there is nothing to write; `fflush(NULL)` is also 0. On an input stream it does nothing (C leaves that undefined).
 - **`int fgetc(FILE *fp)`:** the next byte as an `unsigned char` converted to `int`, or `EOF` with the end-of-file indicator set at end of file, or with the error indicator set on a read error.
@@ -69,4 +76,8 @@ Neither function reports success after any DOS call in it has failed.
 
 ## Constraints
 
-All are `__cdecl`. 8086 instructions only. `fseek` and `ftell` cost nothing in a program that calls neither: the other members, `fgetc` and `fopen` among them, and `FILE` do not change for them, so such a program links the same members as before, of the same size.
+All are `__cdecl`. 8086 instructions only. Moving the stream table out of `fopen` for `fdopen` may change `fopen`'s size, but not what a program that calls it links besides the table. `fseek` and `ftell` cost nothing in a program that calls neither: the other members, `fgetc` and `fopen` among them, and `FILE` do not change for them, so such a program links the same members as before, of the same size.
+
+## Tests
+
+`tests/stdio/fdopen` covers `fdopen` with `r`, `w`, `a`, `rb`, `wt` and `ab` over handles from `open` and from `dup`, reading and writing through the stream and the handle's position before and after; `b`, `t` and neither, each against `setmode`'s report of the handle's mode; `w` leaving the file's length alone; `a` appending after a seek to the start; `fileno`; `fclose` closing the handle; invalid modes (`r+`, `x`, the empty string); a closed handle, -1 and 20; and a full table, with five streams already open, leaving the handle usable. It also writes a line to standard output through `fdopen(dup(1), "w")`, which must appear in its output.

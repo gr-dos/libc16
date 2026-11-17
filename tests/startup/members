@@ -12,6 +12,8 @@ nullstr: cstart
 nullodd: cstart
 exitst: cstart exit
 init:   cstart
+fini:   cstart
+finiex: cstart exit
 ownent: exit int86 intdos segread strcat strcmp strcpy strlen
 args:   argv args cstart
 argfar: argv args cstart

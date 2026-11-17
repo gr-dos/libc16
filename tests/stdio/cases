@@ -5,3 +5,4 @@ stdin 0 stdinrd <INPUT.TXT
 rdwr 0 rdwr
 seek 0 seek
 clear 0 clear
+fdopen 0 fdopen

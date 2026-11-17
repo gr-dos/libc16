@@ -9,5 +9,6 @@
 int    __cdecl chdir(const char *path);
 char * __cdecl getcwd(char *buf, int n);
 int    __cdecl mkdir(const char *path);
+int    __cdecl rmdir(const char *path);
 
 #endif
