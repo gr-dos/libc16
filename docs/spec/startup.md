@@ -65,7 +65,7 @@ Reading or writing through a null pointer is still undefined behaviour, and libc
 
 **Init table:** the entries are the pointers in `LIBC16_INIT` (near, or far in the large model; see "Memory models"), between a label at the start of `LIBC16_INIT_BEGIN` and one at the start of `LIBC16_INIT_END`. Init routines take no arguments and preserve `SI`, `DI`, `BP` and `SS`, and `DS` in the small model.
 
-**Termination table:** the same for termination, in `LIBC16_EXIT_BEGIN`, `LIBC16_EXIT` and `LIBC16_EXIT_END`: pointers of the same size, between a label at the start of `LIBC16_EXIT_BEGIN` and one at the start of `LIBC16_EXIT_END`, to routines with the init routines' contract. A member adds an entry by declaring the three segments in order, in `DGROUP`, as the argv hook does for the init table. The table is walked by both the startup (step 7) and `exit`, so it does not matter which of them a program links first.
+**Termination table:** the same for termination, in `LIBC16_EXIT_BEGIN`, `LIBC16_EXIT` and `LIBC16_EXIT_END`: pointers of the same size, between a label at the start of `LIBC16_EXIT_BEGIN` and one at the start of `LIBC16_EXIT_END`, to routines with the init routines' contract. A member adds an entry by declaring the three init segments and then the three termination segments, in that order, in `DGROUP`, so that the termination table follows the init table whichever module the linker sees first. (Both walks use the labels, so the order of the two tables does not change what runs.) The table is walked by both the startup (step 7) and `exit`, so it does not matter which of them a program links first.
 
 **8086 only.** No instruction from the 80186 or later (`scripts/check-8086`).
 

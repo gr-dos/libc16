@@ -10,6 +10,14 @@
 
 _TEXT   segment byte public 'CODE'
 _TEXT   ends
+; The init segments first, so that the termination table follows them
+; even if the linker sees this module before the core startup.
+LIBC16_INIT_BEGIN segment word public 'DATA'
+LIBC16_INIT_BEGIN ends
+LIBC16_INIT segment word public 'DATA'
+LIBC16_INIT ends
+LIBC16_INIT_END segment word public 'DATA'
+LIBC16_INIT_END ends
 LIBC16_EXIT_BEGIN segment word public 'DATA'
 LIBC16_EXIT_BEGIN ends
 LIBC16_EXIT segment word public 'DATA'
@@ -17,7 +25,8 @@ LIBC16_EXIT ends
 LIBC16_EXIT_END segment word public 'DATA'
 LIBC16_EXIT_END ends
 
-DGROUP  group   LIBC16_EXIT_BEGIN, LIBC16_EXIT, LIBC16_EXIT_END
+DGROUP  group   LIBC16_INIT_BEGIN, LIBC16_INIT, LIBC16_INIT_END, \
+                LIBC16_EXIT_BEGIN, LIBC16_EXIT, LIBC16_EXIT_END
 
         extrn   c_fini_:CDIST
         extrn   _fini_order:word        ; in fini.c or finiex.c, in DGROUP

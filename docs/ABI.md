@@ -135,7 +135,7 @@ Optional members run code before `main` by adding a function pointer to segment 
 
 ### Termination table
 
-Optional members run code at termination, before INT 21h function 4Ch, the same way: a pointer in segment `LIBC16_EXIT` (class `DATA`, in `DGROUP`), declaring `LIBC16_EXIT_BEGIN`, `LIBC16_EXIT` and `LIBC16_EXIT_END` in that order; the segments follow the init table. Entries have the init table's size and contract, and run in link order, both when `main` returns (its value is kept as the exit status) and in `exit`, which walks the table without referencing any member that adds to it. `atexit` is one such member (`docs/spec/startup.md`). A routine may be called again if it, or something it calls, calls `exit`.
+Optional members run code at termination, before INT 21h function 4Ch, the same way: a pointer in segment `LIBC16_EXIT` (class `DATA`, in `DGROUP`), declaring the three init segments and then `LIBC16_EXIT_BEGIN`, `LIBC16_EXIT` and `LIBC16_EXIT_END`, in that order, so that the segments follow the init table whatever the link order. Entries have the init table's size and contract, and run in link order, both when `main` returns (its value is kept as the exit status) and in `exit`, which walks the table without referencing any member that adds to it. `atexit` is one such member (`docs/spec/startup.md`). A routine may be called again if it, or something it calls, calls `exit`.
 
 ### argv
 

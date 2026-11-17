@@ -2,7 +2,8 @@
  * and 2Dh. "clock utc" runs with TZ unset and "clock est" with EST5EDT;
  * the expected values were computed on the host. Also checks that gmtime
  * and localtime keep separate results. The DOS clock is set back at the
- * end. */
+ * end. Each time is set at .50 seconds: DOSBox-X reads a time set at .00
+ * back a few hundredths early, in the second before. */
 
 #include <string.h>
 #include <time.h>
@@ -109,7 +110,7 @@ int main(int argc, char **argv)
     cases = is_est ? est : utc;
 
     /* The first call of time calls tzset. */
-    set_clock(2024, 7, 4, 12, 0, 0, 0);
+    set_clock(2024, 7, 4, 12, 0, 0, 50);
     r = time(NULL);
     CHECK(r == cases[8].want || r == cases[8].want + 1);
     CHECK(daylight == is_est && timezone == (is_est ? 18000L : 0L));
@@ -117,7 +118,7 @@ int main(int argc, char **argv)
     for (i = 0; i < NCASES; i++) {
         const struct ccase *c = &cases[i];
 
-        set_clock(c->year, c->mon, c->mday, c->hour, c->min, c->sec, 0);
+        set_clock(c->year, c->mon, c->mday, c->hour, c->min, c->sec, 50);
         x = 12345;
         r = time(&x);
         if (x != r)
