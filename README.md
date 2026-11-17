@@ -83,7 +83,8 @@ JWasm), git, curl and xz, and `dosbox-x` for the tests:
                     # and the test programs under DOSBox-X, in every model
     make audit      # the similarity audit of each library
     make MODEL=c test   # lib, test or audit for one model (s, c or l)
-    make dist       # build/dist/libc16-VERSION.zip and its .sha256
+    make dist       # build/dist/libc16-VERSION.zip and its .sha256, and make src
+    make src        # build/dist/libc16-VERSION-src.tar.gz and its .sha256
     make install PREFIX=DIR   # copy build/stage to DIR
 
 The pinned Open Watcom snapshot and JWasm are fetched into
@@ -95,10 +96,34 @@ The pinned Open Watcom snapshot and JWasm are fetched into
 semantic versioning. When a pull request that changes it is merged to
 `main`, the release workflow (`.github/workflows/release.yml`) tags the
 merge commit `v<VERSION>`. It then builds, tests and audits, packages
-and checks the ZIP, and publishes a GitHub release with the ZIP and its
-checksum. A push to `main` whose `VERSION` already has a tag publishes
-nothing. Running the workflow by hand on `main` does the same check,
-which bootstraps or retries a release whose tag does not exist yet.
+and checks the ZIP and the source archive, and publishes a GitHub
+release with both and their checksums. A push to `main` whose `VERSION`
+already has a tag publishes no release. Running the workflow by hand on
+`main` does the same check, which bootstraps or retries a release whose
+tag does not exist yet.
+
+### Source archive
+
+Each release also has `libc16-VERSION-src.tar.gz` and its `.sha256`: the
+complete source, for programs that link libc16 into a program whose
+license requires its corresponding source, such as the GPL (GR-DOS's
+`dist16.source` `depends`). `scripts/make-src` makes it with `git archive`
+from the tagged commit, never from a working tree, under the single
+directory `libc16-VERSION/`: everything committed at the tag, with
+`LICENSE`, `README.md` and the `Makefile`. It is the same for the same
+commit, and `git get-tar-commit-id` reads the commit from it. To build it,
+unpack it and run `make` as above. BUILD.txt then shows the revision as
+`unknown`, since there is no `.git`, and the libraries differ from the
+release's only in the source paths `wcc` records.
+
+`scripts/check-src` checks an archive against its commit: the
+checksum, the recorded commit, the top directory, and every file and its
+executable bit, with nothing missing or added. `make src` (and so
+`make dist`, in CI) makes and checks one for `HEAD`. On every run, the
+release workflow gives any release without a source archive one made
+from its tag, which is how v0.01 to v0.07 got theirs. It never replaces
+an existing asset. It then downloads and checks every release's source
+archive.
 
 ## License
 

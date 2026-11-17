@@ -11,7 +11,10 @@
 #                 library for the same model and print only scores
 #                 (decision 6)
 #   make dist     build/dist/libc16-VERSION.zip and its .sha256, from the
-#                 staged tree and the audit, and check the package
+#                 staged tree and the audit, and check the package; and
+#                 make src
+#   make src      build/dist/libc16-VERSION-src.tar.gz and its .sha256, the
+#                 committed tree of HEAD (not the working tree), and check it
 #   make install PREFIX=DIR
 #                 copy the staged tree to DIR
 #   make clean    remove build/s, build/c, build/l, build/stage and
@@ -249,16 +252,25 @@ install: stage
 DIST := $(BUILD)/dist
 ZIP  := $(DIST)/libc16-$(VERSION).zip
 
-dist: stage audit scripts/make-dist scripts/check-dist
+SRC  := $(DIST)/libc16-$(VERSION)-src.tar.gz
+
+dist: stage audit scripts/make-dist scripts/check-dist src
 	mkdir -p $(DIST)
 	scripts/make-dist $(STAGE) $(foreach m,$(MODELS),$(BUILD)/$(m)/audit.txt) libc16-$(VERSION) $(ZIP)
 	cd $(DIST) && sha256sum libc16-$(VERSION).zip > libc16-$(VERSION).zip.sha256
 	scripts/check-dist $(ZIP) $(VERSION)
+
+# The corresponding source (README.md, "Source archive"): git archive of
+# HEAD, so uncommitted changes are not in it.
+src: scripts/make-src scripts/check-src
+	mkdir -p $(DIST)
+	scripts/make-src HEAD $(VERSION) $(SRC)
+	scripts/check-src $(SRC) $(VERSION) HEAD
 
 clean:
 	rm -rf $(foreach m,$(MODELS),$(BUILD)/$(m)) $(STAGE) $(DIST)
 
 FORCE:
 
-.PHONY: all lib test audit stage install dist clean FORCE
+.PHONY: all lib test audit stage install dist src clean FORCE
 .DELETE_ON_ERROR:

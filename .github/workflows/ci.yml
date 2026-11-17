@@ -1,7 +1,7 @@
 # Build the libraries of every model and run make test: the ABI, link-map, 8086 and selective
 # linking checks and the test programs under DOSBox-X (decisions 5 and 7).
-# Then make dist: the similarity audit (decision 6) and the release ZIP,
-# checked by scripts/check-dist, as the release workflow builds them.
+# Then make dist: the similarity audit (decision 6), the release ZIP and
+# the source archive, checked by scripts/check-dist and scripts/check-src, as the release workflow builds them.
 # Actions are pinned to the same commits as GR-DOS's CI.
 
 name: ci

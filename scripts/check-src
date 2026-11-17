@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+#
+# Check a release's source archive against the commit it was made from:
+# its checksum file, the commit ID git archive recorded in it, its single
+# top-level directory, and every file of the commit's tree, with its
+# mode, byte for byte, and nothing else. It compares contents, not the
+# archive's bytes, so an archive made by another version of git or gzip
+# still passes.
+#
+# usage: scripts/check-src libc16-VERSION-src.tar.gz VERSION COMMIT
+
+use v5.36;
+use Archive::Tar;
+use Digest::SHA qw(sha256_hex);
+use File::Basename qw(basename);
+
+@ARGV == 3 or die "usage: $0 libc16-VERSION-src.tar.gz VERSION COMMIT\n";
+my ($archive, $version, $rev) = @ARGV;
+my $top = "libc16-$version";
+my $errors = 0;
+sub bad ($msg) { say "not ok: $msg"; $errors++ }
+sub slurp ($path) {
+    open my $fh, '<:raw', $path or die "$path: $!\n";
+    local $/;
+    return <$fh>;
+}
+sub git (@args) {
+    open my $fh, '-|:raw', 'git', @args or die "git: $!\n";
+    local $/;
+    my $out = <$fh>;
+    close $fh or die "git @args failed\n";
+    return $out;
+}
+
+chomp(my $commit = git('rev-parse', '--verify', "$rev^{commit}"));
+
+# The checksum file, in sha256sum format, names the archive by its base name.
+my $data = slurp($archive);
+my $want = sha256_hex($data) . '  ' . basename($archive) . "\n";
+bad("$archive.sha256 does not match the archive")
+    unless -e "$archive.sha256" && slurp("$archive.sha256") eq $want;
+
+# git archive records the commit in a pax global header.
+open my $id, '-|', "gzip -dc < '$archive' | git get-tar-commit-id" or die "gzip: $!\n";
+chomp(my $recorded = <$id> // '');
+close $id;
+bad("the archive records commit '$recorded', not $commit") unless $recorded eq $commit;
+
+# The commit's tree: path => [mode, blob ID].
+my %tree;
+for (split /\0/, git('ls-tree', '-r', '-z', $commit)) {
+    my ($mode, $type, $sha, $path) = /^(\d+) (\w+) (\w+)\t(.*)$/s or die "ls-tree: $_\n";
+    bad("$path is a $type, which git archive does not include") unless $type eq 'blob';
+    $tree{$path} = [$mode, $sha];
+}
+
+my $tar = Archive::Tar->new;
+$tar->read($archive) or die "$archive: " . $tar->error . "\n";
+my %seen;
+for my $f ($tar->get_files) {
+    my $name = $f->full_path;
+    next if $f->is_dir && "$name/" =~ m{^\Q$top\E/};
+    if ($name !~ m{^\Q$top\E/(.+)$}) {
+        bad("$name is outside $top/");
+        next;
+    }
+    my $path = $1;
+    my $t = $tree{$path};
+    if (!$t) {
+        bad("$path is not in $commit");
+        next;
+    }
+    $seen{$path} = 1;
+    my ($mode, $sha) = @$t;
+    my $blob = git('cat-file', 'blob', $sha);
+    if ($mode eq '120000') {
+        bad("$path is not the symlink to $blob") unless $f->is_symlink && $f->linkname eq $blob;
+        next;
+    }
+    my $exec = $mode eq '100755';
+    bad("$path is " . ($exec ? 'not ' : '') . "executable, unlike in $commit")
+        unless $f->is_file && !!($f->mode & 0100) == $exec;
+    bad("$path differs from $commit") unless $f->get_content eq $blob;
+}
+bad("$_ is missing") for grep { !$seen{$_} } sort keys %tree;
+
+# What a reader needs: the license, the build and how to run it.
+for my $f (qw(LICENSE README.md Makefile VERSION)) {
+    bad("$f is missing from $commit") unless $tree{$f};
+}
+bad("VERSION at $commit is not $version")
+    unless $tree{VERSION} && git('cat-file', 'blob', $tree{VERSION}[1]) eq "$version\n";
+
+if ($errors) {
+    say "$archive: $errors problems";
+    exit 1;
+}
+say "$archive: ok, $commit, " . scalar(keys %tree) . ' files';
