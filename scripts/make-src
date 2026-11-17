@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Write the source archive of a release: libc16-VERSION-src.tar.gz, the
+# tree of one commit as git stores it, under the single top-level
+# directory libc16-VERSION/, and its .sha256. The archive is made by
+# git archive, so it holds only committed files, never the working tree,
+# and it is the same for the same commit: each file's time is the
+# commit's, and gzip records no name or time.
+#
+# usage: scripts/make-src COMMIT VERSION OUT.tar.gz
+#
+# COMMIT is a tag, a branch or a commit ID; its VERSION file must hold
+# VERSION.
+
+set -eu
+
+[ $# -eq 3 ] || { echo "usage: $0 COMMIT VERSION OUT.tar.gz" >&2; exit 2; }
+rev=$1
+version=$2
+out=$3
+
+commit=$(git rev-parse --verify --quiet "$rev^{commit}") \
+  || { echo "$0: $rev is not a commit" >&2; exit 1; }
+got=$(git show "$commit:VERSION")
+[ "$got" = "$version" ] \
+  || { echo "$0: VERSION at $rev is $got, not $version" >&2; exit 1; }
+
+git -c tar.umask=022 archive --format=tar --prefix="libc16-$version/" "$commit" | gzip -9 -n > "$out.tmp"
+mv "$out.tmp" "$out"
+(cd "$(dirname "$out")" && sha256sum "$(basename "$out")" > "$(basename "$out").sha256")
