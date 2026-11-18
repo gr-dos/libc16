@@ -1,5 +1,10 @@
 realloc(NULL, 100) is malloc(100) ok
 realloc(NULL, 0) is malloc(0) ok
+realloc grows in place at the end of the heap ok
+realloc grows in place at the end of the heap again ok
+realloc grows in place into a free neighbour ok
+growing in place leaves the next block ok
+growing in place leaves the rest free ok
 realloc grows, keeping the contents ok
 the grown block is writable ok
 realloc moves, freeing the old block ok

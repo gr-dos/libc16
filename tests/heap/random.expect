@@ -1,0 +1,5 @@
+random blocks are placed and do not overlap ok
+random blocks keep their contents ok
+no random request fails ok
+every block keeps its contents until freed ok
+the freed blocks merge into one at the lowest address ok

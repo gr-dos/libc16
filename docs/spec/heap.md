@@ -37,7 +37,8 @@ The startup places the stack at the top of the program's image in `DGROUP` and s
 C99 7.20.3.4:
 
 - `realloc(NULL, size)` is `malloc(size)`.
-- Otherwise returns a pointer to a block of at least `size` bytes whose first bytes, up to the smaller of the old and new sizes, are the old block's; the rest are unspecified. The block may stay where it is (shrinking, or growing into a free neighbour or into the end of the heap) or move, in which case the old block is freed.
+- Otherwise returns a pointer to a block of at least `size` bytes whose first bytes, up to the smaller of the old and new sizes, are the old block's; the rest are unspecified.
+- The block stays where it is when it can: when `size` fits in it (what it no longer needs is freed, as a block of its own that later requests can have); when the free block after it, if there is one, together with it holds `size` (the rest of that free block stays free); and when it is the last block of the heap, with far data the last block of the last arena, possibly followed by a free block, and the memory block can grow to hold `size` there (with far data, while the arena stays within its segment). Otherwise it moves, and the old block is freed.
 - On failure returns a null pointer, sets `errno` to `ENOMEM`, and leaves the old block allocated and unchanged.
 - `realloc(p, 0)` returns either a null pointer, having freed `p`, or a unique pointer as `malloc(0)` does; the implementation documents which. libc16 returns the unique pointer: `p` itself, shrunk to no bytes and still allocated, to be passed to `free` (or `realloc`) later.
 
@@ -48,9 +49,42 @@ C99 7.20.3.1: allocates `n * size` bytes, all zero. If `n * size` overflows `siz
 ## Constraints
 
 - All are `__cdecl` (`docs/ABI.md`). A program that does not call `malloc`, `calloc` or `realloc` links none of the heap; one that calls only `malloc` and `free` does not link `realloc` or `calloc`.
-- Per-allocation overhead is at most 2 bytes plus alignment in the small model and at most 4 bytes plus alignment with far data. The code is small rather than fast (first fit is enough), but with far data a program that makes thousands of small allocations (an editor's lines) must not take time quadratic in their number for each one.
+- Space: a block holding `n` bytes takes at most the larger of `n + 2` rounded up to a multiple of 4 and 8 bytes (12 with far data). Each arena takes at most 4 bytes besides its blocks. The heap's own static data in `DGROUP` is at most 256 bytes. Free memory needs no allocation of its own: what the heap keeps about free blocks lives in them.
+- Time: see "Performance".
 - 8086 instructions only (`scripts/check-8086`).
+
+## Performance
+
+Programs keep thousands of blocks (an editor's lines, an interpreter's strings, hash entries and arrays) and free and reallocate them in any order (gr-dos/libc16#30, from Perl 3 in `gr-dos/perl16`). Each call's time must not grow with the number of blocks in the heap, allocated or free, except as amortized over many calls:
+
+- `malloc` does not pass every block, or every free block, looking for one that fits. Free blocks that cannot hold a request, however many, cost it nothing after the first such request of that size, until a larger block is freed.
+- `free` merges a block with its free neighbours without a search.
+- `realloc` grows a block in place as "realloc" above requires, so growing the last block of the heap takes no copy, and a block that moves costs what `malloc`, the copy and `free` cost.
+
+Work proportional to the number of distinct block sizes (a few dozen size classes) is allowed; so is copying a moved block's bytes.
+
+`tests/heapperf/scale.c` checks this in every model. Each workload runs `n` blocks at a time repeated `r` times, then `2n` blocks repeated `r/2` times: the same number of calls on a heap holding twice the blocks. Time is in BIOS ticks (18.2 per second) of DOSBox-X's emulated 8086 at its fixed rate (`tests/run-dos`), which counts emulated work rather than the host's speed. A heap whose calls take time independent of the number of blocks takes about as long for the second run; one whose calls each search all the blocks takes twice as long (the whole workload four times as long for twice the blocks, as #30 measured). The check allows the second run at most 3/2 of the first plus 2 ticks, for the clock's granularity:
+
+| Workload | Calls per repetition | Free blocks during it |
+|---|---|---|
+| `small` | `n` `malloc` of 1 to 24 bytes, then `n` `free` | none, then up to `n` |
+| `holes` | `2n` `malloc(8)`, `n` `free` of every other one, `n` `malloc(24)`, which none of the holes can hold, then `3n` `free` | `n` |
+| `grow` | `n` `malloc(8)`, then `realloc` of each to 24 and then 40 bytes; each is followed by the next, so it moves, leaving a hole | up to `n` |
+| `append` | one block grown by 8 bytes `n` times by `realloc`, nothing after it | none |
+| `table` | per key, `malloc(12)` and `malloc(4 to 16)` that stay, a `malloc(16 to 48)` freed at once, and a bucket array doubled by `realloc` | a few |
+
+`scale WORKLOAD N R` measures one workload with other sizes. With libc16 0.12 (first fit; with far data the search starts at the first block that may be free), in DOSBox-X's emulated 8086, every model:
+
+| Workload | `n` × `r` | small | compact | large |
+|---|---|---|---|---|
+| `small` | 100 × 16, 200 × 8 | 5, 9 | 2, 1 | 2, 1 |
+| `holes` | 100 × 16, 200 × 8 | 48, 95 | 49, 94 | 49, 94 |
+| `grow` | 100 × 16, 200 × 8 | 20, 34 | 20, 30 | 20, 31 |
+| `append` | 200 × 8, 400 × 4 | 64, 126 | 64, 126 | 64, 127 |
+| `table` | 100 × 16, 200 × 8 | 27, 50 | 38, 72 | 39, 72 |
+
+Every search in the small model starts at the heap's first block, so even `small` grows with the number of blocks; with far data it starts at the first block that may be free, which helps only while nothing before it is freed. `holes`, `grow` and `table` pass every hole on every call, and `append` copies the whole block on every call. The checked sizes (`n` of 500 to 1,000) take minutes each with 0.12, past `tests/run-dos`'s limit.
 
 ## Tests
 
-`tests/heap` covers, in every model: allocations are distinct, aligned and writable without disturbing each other; `free` and reuse; merging of neighbours; exhaustion returning a null pointer with `ENOMEM`, then recovery after `free`; `malloc(0)`; a program built with a larger `option stack` still gets a working heap above its stack; `realloc` growing, shrinking, moving with the contents kept, failing with the old block intact, and from a null pointer; `calloc` zeroing and its overflow check. With far data: more than 64 KiB in total can be allocated, a request over the limit fails, and every allocation's offset plus size is at most 10000h.
+`tests/heap` covers, in every model: allocations are distinct, aligned and writable without disturbing each other; `free` and reuse; merging of neighbours; exhaustion returning a null pointer with `ENOMEM`, then recovery after `free`; `malloc(0)`; a program built with a larger `option stack` still gets a working heap above its stack; `realloc` growing in place at the end of the heap and into a free neighbour, shrinking, moving with the contents kept, failing with the old block intact, and from a null pointer; `calloc` zeroing and its overflow check; thousands of small allocations; and a long pseudo-random sequence of `malloc`, `realloc` and `free` (`random.c`) whose blocks never overlap and keep their contents, and whose free blocks have all merged once everything is freed. With far data: more than 64 KiB in total can be allocated, a request over the limit fails, and every allocation's offset plus size is at most 10000h. `tests/heapperf` checks "Performance".
