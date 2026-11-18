@@ -67,7 +67,7 @@ What a handler may do: anything a `raise` handler may, including DOS calls (INT 
 - All are `__cdecl` (`docs/ABI.md`). 8086 instructions only.
 - `raise` links `sigtab` and not `signal` or `sigint`; `signal` links `sigtab` and `sigint`. Neither links the startup, the heap or stdio.
 - The dispositions are in BSS (`sigtab`): 31 code pointers.
-- In the small and compact models a handler is a code offset, and the first function of the first module linked is at offset 0, which would be `SIG_DFL` (C89 7.7 requires `SIG_DFL` and `SIG_IGN` to compare unequal to any function's address). `sigtab` therefore has a 2-byte segment of class `BEGCODE`, which the startup's `dosseg` ordering puts before every `CODE` segment, so no function is at offset 0 in a program that can set a disposition. (Found by the implementation session: with only `_TEXT`, a test's handler was at 0.)
+- In the small and compact models a handler is a code offset, which must not be 0 (`SIG_DFL`) or 1 (`SIG_IGN`): C89 7.7 requires both to compare unequal to any function's address. The startup's code reserve guarantees it (`docs/spec/startup.md`, "Null function pointer"); `sigtab` has none of its own. A program without the startup must keep its handlers off those offsets itself.
 
 ## Tests
 

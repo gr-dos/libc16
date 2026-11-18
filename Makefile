@@ -102,7 +102,7 @@ TEST      := $(MB)/tests
 TCFLAGS   := $(WCFLAGS) -Itests/support
 HEADERS   := $(wildcard include/*.h include/sys/*.h) tests/support/testio.h
 SUITES    := $(patsubst tests/%/cases,%,$(wildcard tests/*/cases))
-STARTUP   := status dirty bss memory args stktop nullstr nullodd exitst init fini finiex argfar
+STARTUP   := status dirty bss memory args stktop nullstr nullodd exitst init fini finiex argfar code0
 # ownent has its own entry point, ownstart, instead of the core startup.
 OWNENT    := $(TEST)/startup/ownent.EXE $(TEST)/plus/ownent.EXE
 TEST_EXES := $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP) memstk)
@@ -141,7 +141,7 @@ $(PLUS_LIB): $(LIB) $(PLUS)/unused.obj
 # Each program's objects; memstk is memory with 4 KiB more stack.
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memory.EXE $(d)/memstk.EXE): $(TEST)/startup/memory.obj
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/args.EXE $(d)/memory.EXE $(d)/memstk.EXE $(d)/stktop.EXE \
-	$(d)/init.EXE $(d)/fini.EXE $(d)/finiex.EXE $(d)/argfar.EXE): $(TEST)/support/testio.obj
+	$(d)/init.EXE $(d)/fini.EXE $(d)/finiex.EXE $(d)/argfar.EXE $(d)/code0.EXE): $(TEST)/support/testio.obj
 $(foreach d,$(TEST)/startup $(PLUS),$(d)/memstk.EXE): LDOPTS := option stack=6144
 $(patsubst %,$(TEST)/startup/%.EXE,$(STARTUP)): $(TEST)/startup/%.EXE: $(TEST)/startup/%.obj
 $(patsubst %,$(PLUS)/%.EXE,$(STARTUP)): $(PLUS)/%.EXE: $(TEST)/startup/%.obj
@@ -204,7 +204,7 @@ test: $(TEST_EXES) $(PLUS_EXES) $(SUITE_EXES) $(OWNENT)
 	tests/check-selective $(TEST)/startup $(PLUS)
 	tests/run-dos $(TEST)/startup tests/startup/cases
 	tests/startup/check-memory $(TEST)/startup
-	tests/startup/check-null $(TEST_EXES:.EXE=.MAP) $(SUITE_EXES:.EXE=.MAP)
+	tests/startup/check-null --model $(MODEL) $(TEST_EXES:.EXE=.MAP) $(SUITE_EXES:.EXE=.MAP)
 	set -e; for s in $(filter-out startup,$(SUITES)); do \
 	  m=$$(ls tests/$$s/members.$(MODEL) tests/$$s/members 2>/dev/null | head -1); \
 	  if [ -n "$$m" ]; then tests/check-members $(TEST)/$$s $$m; fi; \

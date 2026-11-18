@@ -111,8 +111,10 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 | `signal` | 83 | 83 | 122 | `sigtab`, `sigint`, `errno` |
 | `raise` | 55 | 55 | 79 | `sigtab`, `errno` |
 | `sigint` (private) | 119 | 119 | 138 | 5 bytes of BSS |
-| `sigtab` (private) | 2 (code reserve) | 2 | 0 | 62 / 62 / 124 bytes of BSS |
+| `sigtab` (private) | 0 | 0 | 0 | 62 / 62 / 124 bytes of BSS (until 0.12 it also had a 2-byte code reserve in the small and compact models, now the startup's) |
 | `abort` | 27 | 29 | 33 | was 18 / 20 / 20; now in assembly, with the communal `___libc16_sigabrt` (2 / 2 / 4 bytes of BSS) |
+
+0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
 Changes to existing members in 0.08:
 

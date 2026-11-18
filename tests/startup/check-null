@@ -6,11 +6,12 @@ use autodie;
 
 =head1 NAME
 
-check-null - check that no object is at offset 0 of DGROUP
+check-null - check that no object is at offset 0 of DGROUP, and no
+function at code offset 0 or 1
 
 =head1 SYNOPSIS
 
-  tests/startup/check-null MAP...
+  tests/startup/check-null [--model s|c|l] MAP...
 
 =head1 DESCRIPTION
 
@@ -20,18 +21,33 @@ frame (it is paragraph aligned, so its bytes are at C<DS:0000>), and that
 every other DGROUP segment with any bytes starts at DGROUP offset 2 or
 later, so that no object of the program is at offset 0, where a pointer
 to it would be a null pointer (docs/spec/startup.md, "Null pointer"). Offsets are from
-DGROUP's frame, the segment of its address in the map. Prints one line per
-map and exits 1 if any fails.
+DGROUP's frame, the segment of its address in the map.
+
+With C<--model s> or C<--model c> it also checks the code reserve
+(docs/spec/startup.md, "Null function pointer"): the first code segment
+(class C<CODE> or C<BEGCODE>) is the startup's C<LIBC16_CODE0>, at least
+2 bytes, at offset 0 of its frame, and every other code segment with any
+bytes starts at offset 2 or later of that frame. With C<--model l> it
+checks that there is no C<LIBC16_CODE0>. Prints one line per map and
+exits 1 if any fails.
 
 =cut
 
-die "usage: $0 MAP...\n" unless @ARGV;
+my $model;
+if (@ARGV >= 2 && $ARGV[0] eq '--model') {
+  (undef, $model) = splice @ARGV, 0, 2;
+  die "$0: bad model $model\n" unless $model =~ /^[scl]$/;
+}
+die "usage: $0 [--model s|c|l] MAP...\n" unless @ARGV;
 
 my $failed = 0;
 for my $map (@ARGV) {
-  my ($frame, @segments);
+  my ($frame, @segments, @code);
   open my $fh, '<', $map;
   while (my $line = <$fh>) {
+    if ($line =~ /^(\w+)\s+(?:BEG)?CODE\s+\w+\s+([0-9a-f]{4}):([0-9a-f]{4})\s+([0-9a-f]{8})\s*$/) {
+      push @code, { name => $1, frame => hex $2, linear => hex($2) * 16 + hex($3), size => hex $4 };
+    }
     if ($line =~ /^DGROUP\s+([0-9a-f]{4}):[0-9a-f]{4}\s+[0-9a-f]{8}\s*$/) {
       $frame = hex $1;
     } elsif ($line =~ /^(\w+)\s+\w+\s+DGROUP\s+([0-9a-f]{4}):([0-9a-f]{4})\s+([0-9a-f]{8})\s*$/) {
@@ -51,11 +67,30 @@ for my $map (@ARGV) {
     my $offset = $segment->{linear} - $frame * 16;
     push @bad, sprintf '%s at offset %d', $segment->{name}, $offset if $segment->{size} && $offset < 2;
   }
+  my $what = 'DGROUP:0 reserved';
+  if (defined $model && $model ne 'l') {
+    my $reserve = $code[0];
+    if (!$reserve || $reserve->{name} ne 'LIBC16_CODE0') {
+      push @bad, 'first code segment ' . ($reserve ? $reserve->{name} : '(none)');
+    } else {
+      my $base = $reserve->{linear};
+      push @bad, "LIBC16_CODE0 size $reserve->{size}" if $reserve->{size} < 2;
+      push @bad, sprintf 'LIBC16_CODE0 at offset %d', $base - $reserve->{frame} * 16
+        if $base != $reserve->{frame} * 16;
+      for my $segment (@code[1 .. $#code]) {
+        push @bad, sprintf 'code %s at offset %d', $segment->{name}, $segment->{linear} - $base
+          if $segment->{size} && $segment->{linear} - $base < 2;
+      }
+    }
+    $what .= ', code:0 reserved';
+  } elsif (defined $model) {
+    push @bad, 'LIBC16_CODE0 in the large model' if grep { $_->{name} eq 'LIBC16_CODE0' } @code;
+  }
   if (@bad) {
     say "not ok $map: ", join ', ', @bad;
     $failed = 1;
   } else {
-    say "ok $map DGROUP:0 reserved";
+    say "ok $map $what";
   }
 }
 exit $failed;
