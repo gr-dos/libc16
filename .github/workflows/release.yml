@@ -120,10 +120,13 @@ jobs:
             --notes-file build/dist/notes.md
 
       # Only adds assets: a release's existing assets are never replaced.
+      # The checkout has the tags that existed when it was made; a tag
+      # created since, as by "Create release" above, is fetched first.
       - name: Attach missing source archives
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git fetch --quiet --tags origin
           mkdir -p build/src
           for tag in $(gh release list --limit 1000 --json tagName --jq '.[].tagName'); do
             version=${tag#v}
