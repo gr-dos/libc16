@@ -15,6 +15,20 @@
 ; Segment order (spec, "Segments"). The code segment matches the one wcc
 ; emits; the data segments are listed in DGROUP order.
 
+; The code reserve, in the small and compact models (spec, "Null function
+; pointer"): a function pointer is an offset in the code segment, and
+; without these 2 bytes the first function linked would be at offset 0, a
+; null pointer and SIG_DFL. Under dosseg the linker puts class BEGCODE
+; before every CODE segment, whatever the order of the modules, and the
+; paragraph alignment makes these bytes offset 0 of the code frame, so
+; _TEXT starts at offset 2. Never executed. LIBC16_NULL refers to it, so
+; that "option eliminate" cannot drop it.
+ifndef FARCODE
+LIBC16_CODE0 segment para public 'BEGCODE'
+code0   db      2 dup (0)
+LIBC16_CODE0 ends
+endif
+
 _TEXT   segment byte public 'CODE'
 _TEXT   ends
 
@@ -23,9 +37,16 @@ _TEXT   ends
 ; linker puts class BEGDATA first in DGROUP, even before the DATA
 ; segments of objects it sees before this one. Paragraph aligned, so that
 ; DGROUP's frame starts at these 2 bytes of 0: DS:0000 is them, not the
-; end of the code or of a far data segment before DGROUP.
+; end of the code or of a far data segment before DGROUP. In the small
+; and compact models the word is the offset of the code reserve, which the
+; linker resolves to 0: the reference that keeps the reserve linked, at
+; no cost.
 LIBC16_NULL segment para public 'BEGDATA'
+ifdef FARCODE
         dw      0
+else
+        dw      offset code0
+endif
 LIBC16_NULL ends
 
 CONST   segment word public 'DATA'

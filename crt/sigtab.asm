@@ -10,17 +10,6 @@
 ; ___libc16_sigabrt: the routine abort (crt/abort.asm) calls first if it
 ; is not 0, a code pointer that signal sets. A communal variable, which
 ; abort declares too, so that abort links nothing.
-;
-; In the small and compact models a handler is a near pointer, the offset
-; of a function in _TEXT, and the first function of the program's first
-; module is at offset 0, which is SIG_DFL (C89 7.7 requires SIG_DFL and
-; SIG_IGN to compare unequal to the address of any function).
-; LIBC16_CODE0, class BEGCODE, holds 2 bytes that no function can be at:
-; under the startup's dosseg ordering wlink puts that class before every
-; CODE segment, so _TEXT starts at offset 2 (our experiment: a BEGCODE
-; segment in an object linked after the one with main put main at 0002;
-; a CODE segment, of any name but BEGTEXT, did not). No program can set a
-; disposition without linking this member.
 
         .8086
         include model.inc
@@ -29,12 +18,6 @@ _BSS    segment word public 'BSS'
 _BSS    ends
 
 DGROUP  group   _BSS
-
-ifndef FARCODE
-LIBC16_CODE0 segment para public 'BEGCODE'
-        db      2 dup (0)
-LIBC16_CODE0 ends
-endif
 
 ifdef FARCODE
         comm    near ___libc16_sigabrt:dword
