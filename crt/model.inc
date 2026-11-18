@@ -11,6 +11,8 @@
 ;   ARG0      the offset from BP of a function's first stack argument,
 ;             after PUSH BP / MOV BP,SP
 ;   DPTR      the size of a data pointer, 2 or 4 bytes
+;   CPTR      the size of a code pointer, 2 or 4 bytes (4 in the large
+;             model: offset, then segment)
 
 ifdef __LARGE__
 FARCODE equ     1
@@ -24,9 +26,11 @@ endif
 ifdef FARCODE
 CDIST   textequ <far>
 ARG0    equ     6
+CPTR    equ     4
 else
 CDIST   textequ <near>
 ARG0    equ     4
+CPTR    equ     2
 endif
 
 ifdef FARDATA

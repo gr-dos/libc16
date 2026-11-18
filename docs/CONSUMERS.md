@@ -104,6 +104,16 @@ Sizes in bytes of code, from `wdis` of each object. A program pays only for the 
 
 The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `system` uses about 130.
 
+0.11 adds `signal` and `raise` (#21, the audit's sections 6.6 and 7.4), in `<signal.h>` (`docs/spec/signal.md`), with Microsoft C's signal numbers. Every number from 1 to 31 can be set and raised; only `SIGINT` (Ctrl-C, through INT 23h) and `SIGABRT` (`abort`) arrive otherwise. `SIGINT` arrives only during a DOS call that checks for Ctrl-C, and a handler may call DOS, `longjmp` out or `exit`. `SIG_DFL` from `raise` ends the program with exit code 3. A Ctrl-C while a child runs goes to DOS's handler, not perl16's.
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `signal` | 83 | 83 | 122 | `sigtab`, `sigint`, `errno` |
+| `raise` | 55 | 55 | 79 | `sigtab`, `errno` |
+| `sigint` (private) | 119 | 119 | 138 | 5 bytes of BSS |
+| `sigtab` (private) | 2 (code reserve) | 2 | 0 | 62 / 62 / 124 bytes of BSS |
+| `abort` | 27 | 29 | 33 | was 18 / 20 / 20; now in assembly, with the communal `___libc16_sigabrt` (2 / 2 / 4 bytes of BSS) |
+
 Changes to existing members in 0.08:
 
 - **`cstart`** grows by 16 bytes in every model (83 / 90 / 93 → 99 / 106 / 109), and **`exit`** by 16 to 18 (10 → 26 / 27 / 28), for walking the termination table. A program that does not call `atexit` links no further member and no data; the table is empty.
