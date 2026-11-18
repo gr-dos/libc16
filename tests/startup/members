@@ -17,3 +17,4 @@ finiex: cstart exit
 ownent: atexit exit int86 intdos segread strcat strcmp strcpy strlen
 args:   argv args cstart
 argfar: argv args cstart
+code0: cstart

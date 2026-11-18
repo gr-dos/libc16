@@ -8,6 +8,7 @@ memstk  0  memstk
 stktop  0  stktop
 nullstr 0  nullstr
 nullodd 0  nullodd
+code0   0  code0
 exitst  5  exitst
 init    0  init
 fini    9  fini
