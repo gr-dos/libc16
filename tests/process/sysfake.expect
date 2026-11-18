@@ -1,0 +1,16 @@
+-- fake
+name[C:\CHILD.EXE]
+arg[/C]
+arg[x]
+arg[9]
+name[C:\CHILD.EXE]
+arg[/C]
+arg[a b]
+arg[0]
+name[C:\CHILD.EXE]
+arg[/C]
+name[C:\CHILD.EXE]
+arg[/C]
+arg[yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy]
+arg[4]
+ok

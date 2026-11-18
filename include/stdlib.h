@@ -41,5 +41,6 @@ void *        __cdecl realloc(void *p, size_t size);
 void          __cdecl srand(unsigned seed);
 long          __cdecl strtol(const char *nptr, char **endptr, int base);
 unsigned long __cdecl strtoul(const char *nptr, char **endptr, int base);
+int           __cdecl system(const char *cmd);
 
 #endif

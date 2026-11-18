@@ -162,6 +162,8 @@ No DOS 2.0 system is available to run the tests on: Microsoft's MIT release of M
 | Command tail at PSP offset 80h | Exec's parameter block: "command line at 80h" |
 | `.EXE` programs loaded with a PSP ("program header") | Exec, function 4Bh |
 
+Running programs (`docs/spec/process.md`) needs Exec (function 4Bh, `AL` = 0), Wait (function 4Dh, the child's return code), Alloc and Dealloc (functions 48h and 49h, for an environment block) and CHMOD (function 43h, `system(NULL)`), all in `SYSCALL.DOC`. Under DOS 2.x, Exec returns with every register changed, `SS:SP` included, so `dosexec` keeps `SP` in `DGROUP` and finds `SS` again as `DGROUP`, which it is in every model.
+
 `SYSCALL.DOC` does not describe the registers on entry to an `.EXE` (`DS` = `ES` = PSP, `SS:SP` and `CS:IP` from the header); that is from Ralf Brown's Interrupt List, which gives it for every DOS version. The tests also call INT 21h function 62h (get PSP), which is DOS 3.0; libc16 itself does not. The tests run under DOSBox-X, whose DOS reports version 5.
 
 ## Segments
