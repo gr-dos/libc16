@@ -1,39 +1,26 @@
 /* malloc - libc16 (docs/spec/heap.md)
  *
- * Small model: the heap is a run of blocks in DGROUP from the top of the
- * stack (__libc16_stack_top, crt/cstart.asm) up to heap_end. Each block
- * starts with a header word: the block's size in bytes, header included,
- * which is even, with bit 0 set while the block is allocated. free
- * (crt/free.c) clears that bit. malloc takes the first free block that is
- * large enough, merging each free block with the free blocks after it as
- * it goes, and splits off what it does not need. When no block will do,
- * it grows the program's DOS memory block (INT 21h function 4Ah) to make
- * room at heap_end, reusing a free block that ends there.
- *
- * Compact and large models: the heap is a run of arenas, each inside one
- * segment, from the paragraph after the top of the stack up through the
- * program's DOS memory block (crt/heap16.h). Blocks within an arena are
- * as in the small model, and found, merged and split the same way, but
- * the search starts at the first block that may be free
- * (__libc16_heap_seg:__libc16_heap_off) rather than at the first arena,
- * so that a program that only allocates (an editor reading its lines)
- * spends no time passing the blocks it allocated before (the spec's
- * Constraints). When no block will do, malloc grows the last arena, from
- * a free block at its end if there is one, and when that would take the
- * arena past ARENA_END it starts a new arena at the paragraph after it,
- * growing the DOS memory block either way. */
+ * Segregated free lists with boundary tags (crt/heap16.h). malloc rounds
+ * the request up to a block size, takes the first free block that holds
+ * it from the list of its size class, unless that list is known to hold
+ * none, or else the first block of the next larger class that has one;
+ * it splits off what it does not need and frees that. When no free block
+ * will do, it grows the heap at its end, from a free block there if
+ * there is one, growing the program's DOS memory block (INT 21h function
+ * 4Ah); with far data it starts a new arena when the last one cannot
+ * hold the block. Each call passes no block that a previous search found
+ * too small, and the classes are a fixed few, so its time does not grow
+ * with the number of blocks (the spec's Performance). */
 
 #include <errno.h>
 #include <stdlib.h>
-
-#if defined(__COMPACT__) || defined(__LARGE__)
-
 #include <dos.h>
 #include "heap16.h"
 
 extern char __cdecl __libc16_stack_top[];
+extern unsigned _psp;
 
-static unsigned last_seg;       /* the last arena; 0 until the first */
+unsigned *__libc16_heap_end;    /* null until the first block */
 
 /* SS is DGROUP in every model (docs/ABI.md, "Memory models"). */
 static unsigned dgroup(void);
@@ -51,190 +38,124 @@ static int set_block(unsigned psp, unsigned paras);
     "inc ax" \
     parm [es] [bx] value [ax] modify [ax bx];
 
-/* The word at seg:off */
-#define WORD(seg, off) (*(unsigned __far *)MK_FP(seg, off))
+#ifdef HEAP_FAR
+#define SEG(b) FP_SEG(b)
+#define OFF(b) FP_OFF(b)
+#else
+#define SEG(b) dgroup()
+#define OFF(b) ((unsigned)(b))
+#endif
 
-/* The paragraphs that hold n bytes, for 0 < n <= 10000h; n = 0 stands
- * for 10000h, a stack top at the end of a 64 KiB DGROUP. */
-#define PARAS(n) ((((n) - 1) >> 4) + 1)
-
-/* Resizes the program's DOS memory block to end at offset end of segment
- * seg; nonzero if DOS did. A size that would not fit in a word fails
- * instead of wrapping to a smaller block. */
-static int set_end(unsigned seg, unsigned end)
+int __libc16_heap_grow(unsigned *b, unsigned need)
 {
-    unsigned below = seg - _psp;
-    unsigned paras = below + PARAS(end);
+    unsigned seg = SEG(b), off = OFF(b), below, paras;
 
-    return paras > below && set_block(_psp, paras);
+    if (need > ARENA_END - off)
+        return 0;
+    off += need;
+    /* The memory block reaches past the new sentinel; a size that would
+     * not fit in a word fails instead of wrapping to a smaller block. */
+    below = seg - _psp;
+    paras = below + ((off + 1) >> 4) + 1;
+    if (paras <= below || !set_block(_psp, paras))
+        return 0;
+    b = AT(b, need);
+    *b = USED;
+    __libc16_heap_end = b;
+    return 1;
 }
 
 void * __cdecl malloc(size_t size)
 {
-    unsigned seg, off, end, have, next, need;
-    unsigned free_seg = 0, free_off = 0;    /* the first free block passed */
-    unsigned last = 0;          /* a free block ending at the heap's end */
+    unsigned need, have, c, *b, *last = 0;
+    struct hfree *f;
 
-    /* HEAP_MAX keeps size + 3 from overflowing too. */
     if (size > HEAP_MAX)
         goto fail;
-    need = (size + 3) & ~1u;    /* the header, rounded up to even */
-    if (last_seg) {
-        seg = __libc16_heap_seg;
-        off = __libc16_heap_off;
-        for (;;) {
-            end = WORD(seg, 0);
-            if (off == end) {
-                if (seg == last_seg)
-                    break;
-                seg += PARAS(end);
-                off = 2;
-                continue;
-            }
-            have = WORD(seg, off);
-            if (have & 1) {
-                off += have - 1;
-                continue;
-            }
-            for (;;) {
-                next = off + have;
-                if (next == end || (WORD(seg, next) & 1))
-                    break;
-                have += WORD(seg, next);
-            }
-            if (have >= need) {
-                if (have != need)
-                    WORD(seg, off + need) = have - need;
+    need = (size + 5) & ~3u;    /* the header, rounded up to 4 */
+    if (need < MIN_BLOCK)
+        need = MIN_BLOCK;
+    c = __libc16_heap_class(need);
+    if (need < ~__libc16_heap_fit[c]) {
+        for (f = __libc16_heap_list[c]; f; f = f->next)
+            if (f->head >= need)
                 goto found;
-            }
-            WORD(seg, off) = have;
-            if (!free_seg) {
-                free_seg = seg;
-                free_off = off;
-            }
-            if (next == end && seg == last_seg)
-                last = off;
-            off = next;
-        }
-
-        /* seg is the last arena and end its end: grow it if the block
-         * stays within ARENA_END. */
-        off = last ? last : end;
-        if (need <= ARENA_END - off) {
-            if (!set_end(seg, off + need))
-                goto fail;
-            WORD(seg, 0) = off + need;
-            goto found;
-        }
-        seg += PARAS(end);
-        if (seg < last_seg)     /* past the top of memory */
-            goto fail;
-    } else
-        seg = dgroup() + PARAS((unsigned)__libc16_stack_top);
-
-    /* A new arena at seg, holding just this block. */
-    if (!set_end(seg, 2 + need))
-        goto fail;
-    WORD(seg, 0) = 2 + need;
-    off = 2;
-    last_seg = seg;
-
-found:
-    WORD(seg, off) = need | 1;
-    if (free_seg) {
-        __libc16_heap_seg = free_seg;
-        __libc16_heap_off = free_off;
-    } else {
-        /* Nothing before the block is free, so the search can start
-         * after it next time. */
-        __libc16_heap_seg = seg;
-        __libc16_heap_off = off + need;
+        __libc16_heap_fit[c] = ~need;
     }
-    return MK_FP(seg, off + 2);
+    /* The next class whose bit is set in the map, clearing the bits of
+     * lists found empty. */
+    for (c++; c < HEAP_CLASSES; c++) {
+        have = __libc16_heap_map[c >> 4] >> (c & 15);
+        if (!have) {
+            c |= 15;
+            continue;
+        }
+        for (; !(have & 1); have >>= 1)
+            c++;
+        if ((f = __libc16_heap_list[c]) != 0)
+            goto found;
+        __libc16_heap_map[c >> 4] &= ~(1u << (c & 15));
+    }
 
-fail:
-    errno = ENOMEM;
-    return NULL;
-}
-
+    /* Grow the heap at its end, from the free block there if any. */
+    b = __libc16_heap_end;
+    if (b) {
+        if (*b & PFREE)
+            b = last = AT(b, -b[-1]);
+    } else {
+#ifdef HEAP_FAR
+        b = MK_FP(dgroup() + (((unsigned)__libc16_stack_top - 1) >> 4) + 1, 0);
 #else
-
-extern char __cdecl __libc16_stack_top[];
-extern unsigned _psp;
-
-static unsigned *heap_start;    /* null until the first call */
-static unsigned *heap_end;
-
-static unsigned dgroup(void);
-#pragma aux dgroup = \
-    "mov ax, ds" \
-    value [ax];
-
-/* Resizes the block at segment psp to paras paragraphs; nonzero if DOS
- * did. */
-static int set_block(unsigned psp, unsigned paras);
-#pragma aux set_block = \
-    "mov ah, 4Ah" \
-    "int 21h" \
-    "sbb ax, ax" \
-    "inc ax" \
-    parm [es] [bx] value [ax] modify [ax bx];
-
-#define NEXT(p, size) ((unsigned *)((char *)(p) + (size)))
-
-void * __cdecl malloc(size_t size)
-{
-    unsigned *p, *next;
-    unsigned *last = NULL;      /* a free block ending at heap_end */
-    unsigned need = size + 3;   /* the header, rounded up to even */
-    unsigned have, top;
-
-    if (need < size)
-        goto fail;
-    need &= ~1u;
-    if (!heap_start) {
         /* An odd stack top is rounded up; one at the end of a 64 KiB
          * DGROUP leaves no room. */
-        top = ((unsigned)__libc16_stack_top + 1) & ~1u;
-        if (!top)
+        b = (unsigned *)(((unsigned)__libc16_stack_top + 1) & ~1u);
+        if (!b)
             goto fail;
-        heap_start = heap_end = (unsigned *)top;
+#endif
     }
-    for (p = heap_start; p != heap_end; p = NEXT(p, have & ~1u)) {
-        have = *p;
-        if (have & 1)
-            continue;
-        for (;;) {
-            next = NEXT(p, have);
-            if (next == heap_end || (*next & 1))
-                break;
-            have += *next;
+    if (!__libc16_heap_grow(b, need)) {
+#ifdef HEAP_FAR
+        /* A new arena at the paragraph after the last. Its sentinel moves
+         * up to the word before that paragraph's last word, freeing the
+         * bytes it passes. */
+        b = __libc16_heap_end;
+        if (!b)
+            goto fail;
+        c = FP_SEG(b) + (FP_OFF(b) >> 4) + 1;
+        if (c < FP_SEG(b) || !__libc16_heap_grow(MK_FP(c, 0), need))
+            goto fail;
+        have = 12 - (FP_OFF(b) & 15);
+        if (have) {
+            *AT(b, have) = USED;
+            *b = (*b & PFREE) | have | USED;
+            free(b + 1);
         }
-        if (have >= need) {
-            if (have != need)
-                *NEXT(p, need) = have - need;
-            *p = need | 1;
-            return p + 1;
-        }
-        *p = have;
-        if (next == heap_end)
-            last = p;
-    }
-
-    /* Grow, keeping DGROUP below 64 KiB: the block is DGROUP's
-     * paragraphs above the PSP plus those up to the new top. */
-    if (last)
-        p = last;
-    top = (unsigned)p + need;
-    if (top < (unsigned)p || !set_block(_psp, dgroup() - _psp + ((top - 1) >> 4) + 1))
+        last = 0;
+        b = MK_FP(c, 0);
+#else
         goto fail;
-    *p = need | 1;
-    heap_end = (unsigned *)top;
-    return p + 1;
+#endif
+    }
+    if (last && *last >= MIN_BLOCK)
+        __libc16_heap_unlink((struct hfree *)last);
+    *b = need | USED;
+    return b + 1;
+
+found:
+    __libc16_heap_unlink(f);
+    b = &f->head;
+    have = *b;
+    *b = need | USED;
+    if (have != need) {
+        /* The rest, after this block and before an allocated one */
+        b = AT(f, need);
+        *b = (have - need) | USED;
+        free(b + 1);
+    } else
+        *AT(f, have) &= ~PFREE;
+    return &f->head + 1;
 
 fail:
     errno = ENOMEM;
     return NULL;
 }
-
-#endif

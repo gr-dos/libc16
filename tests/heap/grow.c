@@ -1,6 +1,6 @@
 /* realloc (docs/spec/heap.md), in every model: from a null pointer,
- * growing, moving, shrinking, to 0, and failing with the old block
- * intact. Prints one line per check (check.h). */
+ * growing in place and by moving, shrinking, to 0, and failing with the
+ * old block intact. Prints one line per check (check.h). */
 
 #include <errno.h>
 #include <stdlib.h>
@@ -26,6 +26,44 @@ static void from_null(void)
     p = realloc(NULL, 0);
     check("realloc(NULL, 0) is malloc(0)", placed(p, 0));
     free(p);
+}
+
+/* A block grows where it is into a free block after it, and at the end
+ * of the heap. Nothing else is allocated, so the first block is the
+ * last one of the heap. */
+static void in_place(void)
+{
+    char *p = malloc(100), *q, *a, *b, *c;
+
+    if (p)
+        fill(p, 100, 3);
+    q = realloc(p, 2000);
+    check("realloc grows in place at the end of the heap", placed(q, 2000) && q == p && filled(q, 100, 3));
+    if (q)
+        fill(q, 2000, 4);
+    q = realloc(q, 4000);
+    check("realloc grows in place at the end of the heap again", placed(q, 4000) && q == p && filled(q, 2000, 4));
+    free(q);
+
+    a = malloc(100);
+    b = malloc(100);
+    c = malloc(100);
+    if (a && c) {
+        fill(a, 100, 6);
+        fill(c, 100, 8);
+    }
+    free(b);
+    q = realloc(a, 180);
+    check("realloc grows in place into a free neighbour", placed(q, 180) && q == a && filled(q, 100, 6));
+    if (q)
+        fill(q, 180, 10);
+    check("growing in place leaves the next block", q && filled(q, 180, 10) && filled(c, 100, 8));
+    b = malloc(10);
+    check("growing in place leaves the rest free",
+        placed(b, 10) && linear(b) >= linear(q) + 180 && linear(b) + 10 <= linear(c));
+    free(b);
+    free(q);
+    free(c);
 }
 
 /* a cannot grow where it is while b follows it, so it moves. */
@@ -105,6 +143,7 @@ static void fail(void)
 int main(void)
 {
     from_null();
+    in_place();
     grow();
     shrink();
     fail();

@@ -1,0 +1,5 @@
+# The heap's scaling (docs/spec/heap.md, "Performance"; tests/run-dos):
+# NAME STATUS PROGRAM [ARGUMENTS]. Its own suite, so that it has its own
+# time limit.
+
+scale    0  scale

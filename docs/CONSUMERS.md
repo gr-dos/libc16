@@ -116,6 +116,14 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 
 0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
+0.14 makes the heap's time independent of the number of blocks (#30, `docs/spec/heap.md`, "Performance"), for perl16's Perl 3, whose hash and recursion tests took minutes with 0.12: `malloc` keeps free blocks on size-class lists instead of searching every block, `free` merges neighbours at once, and `realloc` grows a block in place into a free block after it or at the end of the heap. The interface is unchanged. Blocks are now multiples of 4 bytes, at least 8 (12 with far data), so a program of many tiny blocks needs a little more memory. There is no 0.13.
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `malloc` | 386 | 658 | 670 | was 189 / 405 / 405; 2 / 4 / 4 bytes of BSS |
+| `free` | 238 | 335 | 338 | was 16 / 54 / 54; the free lists, 142 / 204 / 204 bytes of BSS |
+| `realloc` | 222 | 318 | 333 | was 120 / 162 / 172 |
+
 Changes to existing members in 0.08:
 
 - **`cstart`** grows by 16 bytes in every model (83 / 90 / 93 → 99 / 106 / 109), and **`exit`** by 16 to 18 (10 → 26 / 27 / 28), for walking the termination table. A program that does not call `atexit` links no further member and no data; the table is empty.

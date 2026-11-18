@@ -1,0 +1,6 @@
+# Each workload's sizes and ticks vary by model; only "ok" is checked.
+/^small \d+x\d+: \d+ ticks, \d+x\d+: \d+ ticks ok$/
+/^holes \d+x\d+: \d+ ticks, \d+x\d+: \d+ ticks ok$/
+/^grow \d+x\d+: \d+ ticks, \d+x\d+: \d+ ticks ok$/
+/^append \d+x\d+: \d+ ticks, \d+x\d+: \d+ ticks ok$/
+/^table \d+x\d+: \d+ ticks, \d+x\d+: \d+ ticks ok$/
