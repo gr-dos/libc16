@@ -15,7 +15,8 @@ and `dup2`; `rename`, `unlink`, `remove`, `stat`, `fstat`, `getcwd`,
 `fdopen`, `fgets`, `fputs`, `fseek`, `ftell`, `clearerr` and character
 I/O; `strtol`, `strtoul`, `qsort`, `rand`, `srand` and `abort`;
 `setjmp` and `longjmp`; `system`, `spawnl`, `spawnv`, `spawnve`,
-`spawnvp`, `spawnvpe` and `getpid`; `time`,
+`spawnvp`, `spawnvpe` and `getpid`; `signal` and `raise`, with `SIGINT`
+from Ctrl-C; `time`,
 `gmtime`, `localtime` and `strftime`;
 `malloc`/`free`; `_dos_findfirst`/`_dos_findnext`, `int86`/`int86x`,
 `intdos`/`intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`; the compiler's 32- and 64-bit helpers; and

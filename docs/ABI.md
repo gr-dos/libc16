@@ -172,6 +172,8 @@ The startup declares `dosseg` ordering. `DGROUP` holds the startup's 2-byte, par
 
 ## Known issues
 
+- In the small and compact models the first function of the first module linked is at `_TEXT` offset 0, so a near pointer to it compares equal to a null function pointer. `signal` avoids this for its handlers (`docs/spec/signal.md`, "Constraints") with a 2-byte `BEGCODE` segment in `sigtab`; other uses of function pointers are not yet covered. Moving that reserve to the startup, as `LIBC16_NULL` is for data, would cover every program.
+
 - With a `long long` right operand reached through a far pointer (any pointer in the compact and large models, or a `__far` one in the small model), the compiler calls `__I8ME`, `__U8ME`, `__I8DQE`, `__I8DRE`, `__U8DQE` and `__U8DRE` for `*`, `/` and `%`: the same registers, but the 8-byte operand at `ES:SI` (`*p * *q` loads `ES` from `q`'s segment; `a * *q` does `les si,...`). libc16 does not provide them yet, since no consumer needs them, so such a program fails to link rather than misbehave. Shifts are unaffected.
 
 - wcc writes the absolute path of the source file into each object's module name, so `LIBC16.LIB` depends on the checkout directory and is not yet reproducible across paths. Its translator comment also names the Sybase Open Watcom Public License. Neither reaches a linked program.
