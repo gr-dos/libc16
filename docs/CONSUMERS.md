@@ -116,6 +116,23 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 
 0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
+0.15 adds `libc16_systeme(cmd, envp)` to `<process.h>` (#31, `docs/spec/process.md`): `system` with an environment. `cmd` reaches the command processor byte for byte after ` /C `, as with `system`, so quotes, backslashes and redirection are the shell's to interpret; the child's environment is built from `envp` as `spawnve` builds it, and a null `envp` inherits, as `system` does. The command processor is still the parent's `COMSPEC`. perl16 can run every shell command with its `%ENV` this way, instead of falling back to `system` for commands with double quotes:
+
+    char *shell_env[N];         /* "NAME=value" strings from %ENV, then NULL */
+    int status = libc16_systeme("find \"x y\" <in >out", shell_env);
+    if (status == -1)
+        /* errno: ENOENT (no command processor), E2BIG (command over
+         * 122 bytes, or environment over 32767), ENOMEM */;
+
+The environment block is moved out of `spawnx` into its own private member, `envblock`, which `spawnve` and `spawnvpe` link (and `spawnl`, `spawnv` and `spawnvp`, through `spawnx`); their code is the same in total. `system`'s member now holds the core it shares with `libc16_systeme`, which adds 64 bytes to a small-model program that calls `system` (81 compact, 91 large).
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `libc16_systeme` | 17 | 24 | 30 | `system`, `envblock`, `getenv`, `dosexec`, `doserr`, `errno` |
+| `system` | 231 | 295 | 311 | was 167 / 214 / 220 |
+| `envblock` (private) | 132 | 176 | 176 | new; was part of `spawnx` |
+| `spawnx` (private) | 480 | 643 | 651 | was 591 / 789 / 798 |
+
 0.14 makes the heap's time independent of the number of blocks (#30, `docs/spec/heap.md`, "Performance"), for perl16's Perl 3, whose hash and recursion tests took minutes with 0.12: `malloc` keeps free blocks on size-class lists instead of searching every block, `free` merges neighbours at once, and `realloc` grows a block in place into a free block after it or at the end of the heap. The interface is unchanged. Blocks are now multiples of 4 bytes, at least 8 (12 with far data), so a program of many tiny blocks needs a little more memory. There is no 0.13.
 
 | Member | Small | Compact | Large | Also links, or data |

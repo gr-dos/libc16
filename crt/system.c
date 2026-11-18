@@ -1,16 +1,18 @@
-/* system - libc16 (docs/spec/process.md) */
+/* system - libc16 (docs/spec/process.md); and the core it shares with
+ * libc16_systeme */
 
 #include <errno.h>
 #include <stdlib.h>
 #include "io16.h"
 #include "proc16.h"
 
-int __cdecl system(const char *cmd)
+int __libc16_system(const char *cmd, char * const *envp, __libc16_envfn env)
 {
     char tail[TAIL_MAX + 2];
     const char *sh;
     char *d;
     unsigned long a;
+    unsigned seg;
     int r;
 
     if ((sh = getenv("COMSPEC")) == NULL)
@@ -35,8 +37,18 @@ int __cdecl system(const char *cmd)
         }
     *d = '\r';
     tail[0] = (char)(d - tail - 1);
-    r = __libc16_dosexec(sh, 0, tail);
+    seg = 0;
+    if (env != NULL && envp != NULL && (seg = env(envp)) == 0)
+        return -1;
+    r = __libc16_dosexec(sh, seg, tail);
+    if (seg != 0)
+        __libc16_dosfree(seg);
     if (r < 0)
         return __libc16_doserr(-r);
     return r;
+}
+
+int __cdecl system(const char *cmd)
+{
+    return __libc16_system(cmd, NULL, NULL);
 }

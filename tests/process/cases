@@ -15,3 +15,12 @@ set COMSPEC=C:\SYSDIR
 sysdir 0 system dir
 set COMSPEC=Z:\COMMAND.COM
 sysreal 0 system real
+set LIBC16=OLD
+set COMSPEC=C:\CHILD.EXE
+sysefake 0 systeme fake
+set COMSPEC=
+sysenone 0 systeme none
+set COMSPEC=C:\SYSDIR
+sysedir 0 systeme dir
+set COMSPEC=Z:\COMMAND.COM
+sysereal 0 systeme real
