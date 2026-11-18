@@ -1,7 +1,7 @@
 # Spec: running programs
 
 **Headers:** `<process.h>`, `<stdlib.h>` (`system`)  
-**Members:** `system`, `spawnl`, `spawnv`, `spawnve`, `spawnvp`, `spawnvpe`, `getpid`, each its own member; private members `spawnx` (the shared core: the mode, the command tail, the environment block, the extensions), `spawnp` (the `PATH` search) and `dosexec` (INT 21h 4B00h and 4Dh, in assembly); in each of the small, compact and large libraries (decision 11)  
+**Members:** `system`, `libc16_systeme`, `spawnl`, `spawnv`, `spawnve`, `spawnvp`, `spawnvpe`, `getpid`, each its own member; private members `spawnx` (the shared core: the mode, the command tail, the environment block, the extensions), `spawnp` (the `PATH` search) and `dosexec` (INT 21h 4B00h and 4Dh, in assembly); in each of the small, compact and large libraries (decision 11)  
 **Tests:** `tests/process` (run by `tests/run-dos`, in every model)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation. `dosexec` is written in assembly: under DOS 2.x, INT 21h 4B00h returns with every register changed, `SS` and `SP` included, which C cannot express.
@@ -13,6 +13,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 - INT 21h functions 4B00h (load and execute: the parameter block, the environment block, the command tail), 4Dh (get return code: `AL` the code, `AH` how the child ended), 48h (allocate memory), 49h (free memory) and 43h (get attributes), all DOS 2.0; the environment and the program name DOS 3.0 adds after it; PSP offsets 2Ch, 5Ch, 6Ch and 80h; the registers 4B00h destroys under DOS 2.x: Ralf Brown's Interrupt List; MS-DOS 2.0 `SYSCALL.DOC`.
 - `docs/spec/startup.md` ("Command-tail parser"), for the quoting the command tail uses, so that a libc16 child sees the `argv` its parent passed.
 - gr-dos/perl16's `docs/M3-RUNTIME-AUDIT.md`, section 6.6, for the proposed contract.
+- gr-dos/libc16#31, for `libc16_systeme`: perl16 runs shell commands containing double quotes with `system`, because the spawn functions' quoting reaches `COMMAND.COM` unchanged, and so loses the changes it made to its environment.
 - Our own experiments under DOSBox-X (0.09, `tests/run-dos`):
   - 4B00h of a name without an extension fails with error 2: DOS adds none.
   - 4B00h of a missing file, or of a file in a missing directory, fails with error 2.
@@ -50,19 +51,31 @@ The exit code is the command processor's, not necessarily the command's: DOSBox-
 
 `system` links `getenv` and so the startup, and no heap or stdio.
 
+## `int libc16_systeme(const char *cmd, char * const *envp)`
+
+libc16's own extension (#31): `system` with an environment. It runs the command processor as `system` does, with the command tail ` /C ` followed by `cmd` exactly as it is, byte for byte: no splitting into words, quoting or escaping, so double quotes, backslashes, tabs, `%`, redirection and pipes reach the command processor as the caller wrote them. The child's environment is built from `envp` as `spawnve` builds it ("Common behaviour of the spawn functions", "Environment"): each string in order, then one more zero; an `envp` with no strings gives an empty environment; a null `envp` passes the parent's environment, so that `libc16_systeme(cmd, NULL)` is `system(cmd)`.
+
+- **The command processor:** named by the parent's `COMSPEC` (from `getenv`), or `\COMMAND.COM` if the parent has none, as for `system`. A `COMSPEC` in `envp` is passed to the child but does not choose the command processor, as `spawnvpe` searches the parent's `PATH` whatever `envp` holds.
+- **`cmd` null:** runs nothing, builds no environment and returns what `system(NULL)` returns: 1 if the command processor exists, else 0. `envp` is not looked at.
+- **Order of checks**, each failing with -1 and `errno`, with nothing run and no memory kept: the command processor exists and is not a directory (`errno` from the DOS error, `ENOENT` for a missing one), as for `system`; `cmd` is at most 122 bytes (`E2BIG`); the environment block is at most 32767 bytes (`E2BIG`); INT 21h 48h gives memory for it (`ENOMEM`). Then the command processor is run; if it cannot be, -1 with `errno` as for `system`.
+- **Result:** the command processor's exit code (4Dh's `AL`), as for `system`; `errno` is unchanged on success. The environment block is freed (49h) after the child ends.
+- **Across the call:** as for `system` and the spawn functions: the program's memory block and the heap are left as they are, the child inherits the open handles, and no streams are flushed.
+- `__cdecl`, declared in `<process.h>`. It links `getenv` and so the startup, and no heap or stdio. A program that calls `system` alone does not link `libc16_systeme`, and one that calls `libc16_systeme` does not link the spawn functions' argument quoting. The implementation should share `system`'s and `spawnve`'s code where it can rather than repeat it.
+
 ## `int getpid(void)`
 
 Returns the program's PSP segment (`_psp`). It is unique among the programs running at the same time: a child's PSP is in memory the parent's block does not contain. Links the startup.
 
 ## `<process.h>`
 
-Declares the spawn functions, `system`, `getpid`, and `P_WAIT` (0), `P_NOWAIT` (1) and `P_OVERLAY` (2). `<stdlib.h>` declares `system` too.
+Declares the spawn functions, `system`, `libc16_systeme`, `getpid`, and `P_WAIT` (0), `P_NOWAIT` (1) and `P_OVERLAY` (2). `<stdlib.h>` declares `system` too.
 
 ## Tests
 
-`tests/process`, in every model, with `CHILD.EXE` (`tests/process/child.c`), a libc16 program that prints, one per line: `name[` its full path (from after its environment) `]`; `arg[` each argument `]`; with `-e` as its first argument, `env[` each environment string `]`; with `-g NAME`, `val[` the value of `NAME` `]`, or `val(null)`; with `-f`, `fcb[` its first FCB's drive (a digit) and the 11 name bytes `]`. It exits with the value of its last argument if that starts with a digit, else 0.
+`tests/process`, in every model, with `CHILD.EXE` (`tests/process/child.c`), a libc16 program that prints, one per line: with `TAIL` in its environment, `tail[` its command tail from PSP offset 81h, byte for byte `]`; `name[` its full path (from after its environment) `]`; `arg[` each argument `]`; with `-e` as its first argument, `env[` each environment string `]`; with `-g NAME`, `val[` the value of `NAME` `]`, or `val(null)`; with `-f`, `fcb[` its first FCB's drive (a digit) and the 11 name bytes `]`. When its first argument is `/C` (run as a command processor), the options are looked for after it. It exits with the value of its last argument if that starts with a digit, else 0.
 
 - `process`: exit codes (0, 7, 255); arguments with spaces, tabs, double quotes, backslashes and empty ones, seen exactly by the child; the 126-byte limit with and without quoting (`E2BIG`, nothing run); blank FCBs; the extension rule (`CHILD` runs `CHILD.EXE`, `KID` finds `KID.COM` before `KID.EXE`); the `PATH` search, with missing and empty elements and an element ending in `\`, the current directory first, no search for a name with a `\` or for `spawnv`, and the parent's `PATH` for `spawnvpe`; an `envp` the child sees, an empty one, a null one (inherits) and one over 32767 bytes (`E2BIG`); inheritance of a variable the cases set; `P_NOWAIT`, `P_OVERLAY` and 99 (`EINVAL`); a null `argv`; missing programs (`ENOENT`); `errno` unchanged on success; the program's memory block and the largest free block the same after each call; `getpid` equal to `_psp` and to INT 21h 62h.
 - `nopath`: `spawnl`, `spawnv` and `spawnve` alone, so that `tests/check-members` checks they link no `getenv`, heap or stdio.
 - `system`, run four times by the cases: with `COMSPEC` set to `C:\CHILD.EXE` (the exit code passes through; the tail is ` /C ` and the command; `system(NULL)` is 1; 122 and 123 bytes); with `COMSPEC` unset (`system(NULL)` is 0 and `system` fails with `ENOENT` until the test copies `CHILD.EXE` to `\COMMAND.COM`, then runs it); with `COMSPEC` naming a directory (`system(NULL)` is 0 and `system` fails); and with DOSBox-X's `Z:\COMMAND.COM` (a command with redirection runs, and its output file has the child's output).
+- `systeme`, run four times as `system` is, with `LIBC16` set to `OLD`: with `COMSPEC` set to `C:\CHILD.EXE`, the command tail byte for byte (`CHILD.EXE` prints it when `TAIL` is in its environment) for a command with quotes, escaped quotes, backslashes, an empty quoted word, a tab, `%`, `<`, `>`, `|` and `;`, the parent's `COMSPEC` used when `envp` names another, the child's environment changed, added to, deleted from, empty and inherited (null `envp`), the exit code, `cmd` null with and without `envp`, 122 and 123 bytes, an environment over 32767 bytes, and `ENOMEM` with DOS's largest free block taken, each failure running nothing; with `COMSPEC` unset, even with `COMSPEC` in `envp` (`ENOENT`); with `COMSPEC` naming a directory; and with DOSBox-X's `Z:\COMMAND.COM`, a command with a quoted argument and redirection, whose child sees a variable that only `envp` holds.
 - 8086 instructions only (`tests/check-8086`).

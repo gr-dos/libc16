@@ -19,4 +19,7 @@ int __cdecl spawnvp(int mode, const char *path, char * const *argv);
 int __cdecl spawnvpe(int mode, const char *path, char * const *argv, char * const *envp);
 int __cdecl system(const char *cmd);
 
+/* libc16's own: system with an environment (docs/spec/process.md) */
+int __cdecl libc16_systeme(const char *cmd, char * const *envp);
+
 #endif
