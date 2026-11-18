@@ -90,6 +90,20 @@ Sizes in bytes of code, from `wdis` of each object. A program pays only for the 
 | `setjmp` | 43 | 41 | 42 |
 | `longjmp` | 38 | 40 | 41 |
 
+0.10 adds `system`, `spawnl`, `spawnv`, `spawnve`, `spawnvp`, `spawnvpe` and `getpid` (#20, the audit's section 6.6), in `<process.h>` (`docs/spec/process.md`). Only `P_WAIT` is supported. The tail is quoted so that a libc16 child gets back the `argv` it was given; the `e` forms build the environment from `envp` alone, in a block from DOS rather than the heap. A child gets the memory above the heap's highest point: the heap never shrinks the program's block. Under DOSBox-X, `system` returns `COMMAND.COM`'s exit code, which is 1 whenever it ran a program, not that program's code; perl16 should use the spawn functions where it needs an exit status.
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `spawnl`, `spawnv`, `spawnvp` | 23 | 30 / 31 / 31 | 36 / 37 / 37 | `spawnx` |
+| `spawnve`, `spawnvpe` | 24 | 33 | 39 | `spawnx` |
+| `spawnx` (private) | 591 | 789 | 798 | `dosexec`, `doserr`, `errno` |
+| `spawnp` (private, the `p` forms) | 201 | 264 | 270 | `getenv`, so the startup; 5 bytes of constants |
+| `dosexec` (private) | 99 | 101 | 101 | 2 bytes of BSS |
+| `system` | 167 | 214 | 220 | `dosexec`, `getenv`, `doserr`, `errno`; 21 bytes of constants |
+| `getpid` | 4 | 5 | 5 | the startup |
+
+The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `system` uses about 130.
+
 Changes to existing members in 0.08:
 
 - **`cstart`** grows by 16 bytes in every model (83 / 90 / 93 → 99 / 106 / 109), and **`exit`** by 16 to 18 (10 → 26 / 27 / 28), for walking the termination table. A program that does not call `atexit` links no further member and no data; the table is empty.

@@ -18,6 +18,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
   - 4B00h of a missing file, or of a file in a missing directory, fails with error 2.
   - With the environment segment 0 the child gets a copy of the parent's environment; with a segment, a copy of that block, up to its first pair of zero bytes, then the word 1 and the child's full path (`C:\CHILD.EXE`), also for a relative name. A block of just two zero bytes gives the child an empty environment.
   - Under DOSBox-X, `COMSPEC` is `Z:\COMMAND.COM`, and `Z:\COMMAND.COM /C cmd` runs `cmd` but returns 1 (4Dh) whenever it ran a program, whatever that program's exit code, and 0 otherwise. 4300h of `Z:\COMMAND.COM` succeeds.
+  - Under DOSBox-X, 4B00h of a missing file whose name ends in `COMMAND.COM` (`\COMMAND.COM`, `C:\X\COMMAND.COM` in a missing directory) does not fail: DOSBox-X runs its own command processor. 4B00h of another missing name (`\FOO.COM`) fails with error 2. (Found by the implementation session.)
 
 ## Memory
 
@@ -41,7 +42,7 @@ DOS loads a child into the largest free block. The startup shrinks the program's
 
 ## `int system(const char *cmd)`
 
-Runs the command processor named by `COMSPEC` (from `getenv`), or `\COMMAND.COM` (the root of the current drive) if `COMSPEC` is not set, with the parent's environment and the command tail ` /C ` followed by `cmd` exactly as it is (no quoting), and returns the command processor's exit code (4Dh's `AL`). `cmd` longer than 122 bytes fails with `E2BIG`, as the tail would pass 126. If the command processor cannot be run, `system` returns -1 with `errno` set as for the spawn functions (`ENOENT` for a missing one). No extension is added and no `PATH` search is made.
+Runs the command processor named by `COMSPEC` (from `getenv`), or `\COMMAND.COM` (the root of the current drive) if `COMSPEC` is not set, with the parent's environment and the command tail ` /C ` followed by `cmd` exactly as it is (no quoting), and returns the command processor's exit code (4Dh's `AL`). `cmd` longer than 122 bytes fails with `E2BIG`, as the tail would pass 126. `system` first checks that the command processor exists, as `system(NULL)` does (see below), and fails with `errno` from the DOS error as in `docs/spec/io.md` (`ENOENT` for a missing one) if it does not, before looking at `cmd`; so DOSBox-X's behaviour for a missing `COMMAND.COM` ("Sources") does not hide a missing command processor. If the command processor cannot be run, `system` returns -1 with `errno` set as for the spawn functions (`ENOENT` for a missing one). No extension is added and no `PATH` search is made.
 
 `system(NULL)` runs nothing and returns 1 if the command processor exists (INT 21h 4300h succeeds and it is not a directory), else 0.
 
