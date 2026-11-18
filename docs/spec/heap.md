@@ -18,7 +18,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 The startup places the stack at the top of the program's image in `DGROUP` and shrinks the program's DOS memory block to end at the top of the stack, rounded up to a paragraph (`___libc16_stack_top`). The heap lies above the stack and grows the memory block with INT 21h function 4Ah as it needs more. If the startup does not make something the heap needs available, the implementation may add a symbol to `crt/cstart.asm`, updating `docs/spec/startup.md` and its tests; a program that does not call the heap functions must not change in size.
 
 - **Small model.** Pointers are near, so the heap is in `DGROUP` above the stack and never grows the memory block beyond the end of a 64 KiB `DGROUP`.
-- **Compact and large models.** Pointers are far, so the heap may use all the memory DOS lets the block grow to above the stack, beyond `DGROUP` and across as many 64 KiB segments as that takes. Each allocation is one object inside a single segment: its far pointer's offset plus its size is at most 10000h, so the compiler's far pointer arithmetic (on the offset only) works anywhere inside it. Requests of up to 65,000 bytes must be supported; the implementation documents its exact limit (less than 65,536 bytes), and a larger request fails. libc16's limit is 65,530 bytes: the heap is a run of arenas of at most one segment each, and an allocation's 2-byte header and its arena's 2-byte end word leave at most 65,530 of an arena's 65,534 bytes.
+- **Compact and large models.** Pointers are far, so the heap may use all the memory DOS lets the block grow to above the stack, beyond `DGROUP` and across as many 64 KiB segments as that takes. Each allocation is one object inside a single segment: its far pointer's offset plus its size is at most 10000h, so the compiler's far pointer arithmetic (on the offset only) works anywhere inside it. Requests of up to 65,000 bytes must be supported; the implementation documents its exact limit (less than 65,536 bytes), and a larger request fails. libc16's limit is 65,530 bytes: the heap is a run of arenas of at most one segment each, and an allocation's 2-byte header and the 2-byte sentinel that ends its arena leave at most 65,530 of an arena's 65,534 bytes.
 
 ## `void *malloc(size_t size)`
 
@@ -84,6 +84,20 @@ Work proportional to the number of distinct block sizes (a few dozen size classe
 | `table` | 100 × 16, 200 × 8 | 27, 50 | 38, 72 | 39, 72 |
 
 Every search in the small model starts at the heap's first block, so even `small` grows with the number of blocks; with far data it starts at the first block that may be free, which helps only while nothing before it is freed. `holes`, `grow` and `table` pass every hole on every call, and `append` copies the whole block on every call. The checked sizes (`n` of 500 to 1,000) take minutes each with 0.12, past `tests/run-dos`'s limit.
+
+0.14 (segregated free lists with boundary tags, `crt/heap16.h`) at the checked sizes, which `tests/heapperf` runs:
+
+| Workload | small | compact | large |
+|---|---|---|---|
+| `small` | 700 × 16: 29, 1,400 × 8: 30 | 1,000 × 16: 50, 2,000 × 8: 51 | 1,000 × 16: 51, 2,000 × 8: 52 |
+| `holes` | 500 × 16: 65, 1,000 × 8: 63 | 1,000 × 16: 157, 2,000 × 8: 152 | 1,000 × 16: 160, 2,000 × 8: 156 |
+| `grow` | 500 × 16: 72, 1,000 × 8: 73 | 500 × 16: 90, 1,000 × 8: 88 | 500 × 16: 90, 1,000 × 8: 90 |
+| `append` | 1,000 × 8: 12, 2,000 × 4: 11 | 1,000 × 8: 13, 2,000 × 4: 14 | 1,000 × 8: 14, 2,000 × 4: 14 |
+| `table` | 600 × 16: 75, 1,200 × 8: 78 | 1,000 × 16: 157, 2,000 × 8: 157 | 1,000 × 16: 160, 2,000 × 8: 160 |
+
+`holes` at 1,000 × 8, for example, takes 63 ticks (3.5 seconds) in the small model where 0.12 took 94 ticks for 200 × 8; 0.12's time grows with the square of the blocks, so at 1,000 × 8 it would take about 25 times that, some 2,350 ticks (over two minutes).
+
+The trade-offs: the code of `malloc`, `free` and `realloc` is about 2.5 times 0.12's (846 bytes against 325 in the small model, 1,311 against 621 in the compact); the free lists take 144 bytes of `DGROUP` in the small model and 208 with far data, where 0.12 took 4 and 6; a block is a multiple of 4 bytes, at least 8 (12 with far data), where 0.12's were even and at least 2 (so `malloc(0)` takes 8 or 12 bytes); and a far arena ends with a 2-byte sentinel and up to 14 bytes before the next paragraph, which are freed into it.
 
 ## Tests
 

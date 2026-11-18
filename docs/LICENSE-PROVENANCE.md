@@ -104,6 +104,15 @@ For #9, the design session found from libc16's own link maps that the word-align
 
 The compact and large libraries (decision 11) are built from the same sources as the small one. The conventions they follow (`docs/ABI.md`, "Memory models") were found by compiling our own C in each model and disassembling our own objects. Each member kept its author: the design session ported its own assembly members and pragmas (`crt/model.inc`, `int86`, `int86x`, `segread`, `bdos`, `kbhit` and the C members' register pragmas), and separate sessions, each given a copy of the repository holding only its own members' sources and the others as prebuilt objects, ported the startup, the arithmetic helpers, the heap and the number formatting, under the same instructions as before. Each checked that its members' small-model objects did not change.
 
+### The heap's scaling
+
+0.14 (#30) rewrites `malloc`, `free` and `realloc` so that their time does not grow with the number of blocks, for `gr-dos/perl16`'s Perl 3, whose hash and recursion tests took minutes with 0.12. It was written clean-room, in two sessions, as the earlier heap was:
+
+- **Design session.** It wrote the "Performance" section and the space and `realloc` requirements of `docs/spec/heap.md`, `tests/heapperf/scale.c`, `tests/heap/random.c` and the in-place checks in `tests/heap/grow.c`, committed before any code, and measured 0.12 with them under DOSBox-X. Its sources: C99 7.20.3, libc16's own heap spec and members, and gr-dos/libc16#30. It read no Perl, Open Watcom runtime or other C library source. After the implementation session reported it, it added `i4m` to `random`'s members (its generator's 32-bit multiply).
+- **Implementation session.** It worked in a copy of the repository without git history, told to read nothing outside it, including other C libraries and Open Watcom's runtime source, headers and libraries. It reported reading only the specs, `docs/ABI.md`, `docs/DESIGN.md`, the policy and heap rows of this file, the old heap members, the tests, the Makefile and other `crt` members for conventions, and running the tools on libc16's own objects. It rewrote `crt/heap16.h`, `malloc.c`, `free.c` and `realloc.c` from the textbook techniques it recalled: segregated free lists and Knuth's boundary tags (TAOCP vol. 1, 2.5). It changed no spec or test. `calloc` is unchanged.
+
+No Open Watcom runtime source or header was read and none of its libraries was disassembled.
+
 ### `getch` and `putch`
 
 `getch` and `putch` (0.04) are for GR-DOS's FDISK, a Microsoft C 5.1 program from the MS-DOS 4.00 source. They were specified in `docs/spec/dos.md` from Microsoft's documentation of the `conio.h` interface and Ralf Brown's Interrupt List for INT 21h functions 02h, 06h and 08h, and written from that spec. No Open Watcom runtime source or header was read and none of its libraries was disassembled.

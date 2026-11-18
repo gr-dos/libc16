@@ -10,4 +10,4 @@ freeonly: cstart free
 grow:     cstart malloc free realloc memcpy errno
 zeroed:   cstart malloc free calloc memset errno
 many:     cstart malloc free errno
-random:   cstart malloc free realloc memcpy errno
+random:   cstart malloc free realloc memcpy errno i4m
