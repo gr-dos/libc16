@@ -1,0 +1,6 @@
+# Each test program links only the members it calls.
+
+child: args argv atoi cstart getenv strcmp
+process: close cstart dosexec doserr errno fdtab getenv getpid int86 intdos memset mkdir open read rmdir spawnl spawnp spawnv spawnve spawnvp spawnvpe spawnx unlink write
+nopath: cstart dosexec doserr errno spawnl spawnv spawnve spawnx
+system: args argv close cstart dosexec doserr errno fdtab getenv int86 intdos memset mkdir open read rmdir strcmp strcpy strstr system unlink write

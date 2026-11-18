@@ -1,0 +1,17 @@
+# Running programs (docs/spec/process.md). CHILD.EXE is the child the
+# tests run; it is not a case itself.
+
+set LIBC16=INHERIT
+set PATH=C:\NOPE;;Q:\X;C:\BIN\;C:\BIN2
+process 0 process
+nopath  0 nopath
+set PATH=Z:\
+set LIBC16=
+set COMSPEC=C:\CHILD.EXE
+sysfake 0 system fake
+set COMSPEC=
+sysnone 0 system none
+set COMSPEC=C:\SYSDIR
+sysdir 0 system dir
+set COMSPEC=Z:\COMMAND.COM
+sysreal 0 system real
