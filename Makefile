@@ -111,7 +111,7 @@ SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
 TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj $(TEST)/startup/codeodd.obj \
 	$(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj \
 	$(TEST)/startup/inittab.obj $(TEST)/startup/finitab.obj \
-	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj $(TEST)/setjmp/sjasm.obj \
+	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj $(TEST)/setjmp/sjasm.obj $(TEST)/signal/sigasm.obj \
 	$(TEST)/support/testio.obj \
 	$(SUITE_EXES:.EXE=.obj)
 
@@ -169,6 +169,9 @@ $(TEST)/dos/dos.EXE: $(TEST)/dos/esafter.obj
 
 # setjmp also links its assembly checks.
 $(TEST)/setjmp/setjmp.EXE: $(TEST)/setjmp/sjasm.obj
+
+# signal also links its assembly helpers.
+$(TEST)/signal/signal.EXE: $(TEST)/signal/sigasm.obj
 
 # bigstk runs heap.c's checks with a larger stack. The heap programs
 # share tests/heap/check.h.

@@ -1,0 +1,10 @@
+# signal and raise (docs/spec/signal.md). SIGKID.EXE is run by sigvec.
+
+signal   0 signal
+sigdfl   3 sigdfl term
+sigdfli  3 sigdfl int
+sigabrt  3 sigabrt ret
+sigabrti 3 sigabrt ign
+sigabrtj 0 sigabrt jump
+sigkid   0 sigkid
+sigvec   0 sigvec

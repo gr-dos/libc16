@@ -43,9 +43,11 @@ C89's example generator returns bits 30 to 16 of a similar sequence; the low bit
 
 ## `void abort(void)`
 
-Ends the program abnormally (C89 7.10.4.1), as Microsoft C does: writes `abnormal program termination` and `\r\n` to handle 2 (standard error) with INT 21h function 40h, then terminates with INT 21h function 4Ch with exit code 3. It does not return. It runs nothing else first: not the `atexit` functions or the termination table (`docs/spec/startup.md`), which C89 7.10.4.1 does not call; libc16 has no `signal`, so there is no `SIGABRT` handler to call; and its output streams are unbuffered, so there is nothing to flush. A failure to write the message is ignored.
+Ends the program abnormally (C89 7.10.4.1), as Microsoft C does: writes `abnormal program termination` and `\r\n` to handle 2 (standard error) with INT 21h function 40h, then terminates with INT 21h function 4Ch with exit code 3. It does not return. It runs nothing else first: not the `atexit` functions or the termination table (`docs/spec/startup.md`), which C89 7.10.4.1 does not call; and its output streams are unbuffered, so there is nothing to flush. A failure to write the message is ignored.
 
-`abort` references no other member, and does not need the startup (`docs/spec/startup.md`, "Programs without the startup").
+First, if a `SIGABRT` handler is set, `abort` resets the disposition to `SIG_DFL` and calls it; if it returns, `abort` goes on as above (`docs/spec/signal.md`, "`abort`").
+
+`abort` references no other member (only the communal variable `___libc16_sigabrt`, `docs/spec/signal.md`), and does not need the startup (`docs/spec/startup.md`, "Programs without the startup").
 
 ## Constraints
 

@@ -1,0 +1,7 @@
+# Each test program links only the members it calls.
+
+signal: cstart errno getch int86 kbhit longjmp raise segread setjmp sigint signal sigtab
+sigdfl: errno args argv atexit cstart raise sigint signal sigtab strcmp
+sigabrt: errno abort args argv cstart longjmp setjmp sigint signal sigtab strcmp
+sigkid: errno cstart getvect sigint signal sigtab
+sigvec: cstart dosexec doserr errno getvect spawnl spawnx
