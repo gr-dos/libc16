@@ -1,0 +1,3 @@
+# Each test program links only the members it calls.
+
+setjmp: cstart longjmp qsort setjmp

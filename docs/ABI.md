@@ -77,6 +77,16 @@ Every public libc16 function is declared `__cdecl` in its header.
 
 Library functions that take function pointers (`qsort`, `bsearch`, `atexit` and so on) take `__cdecl` function-pointer types. Passing a default-convention function is a compile error, E1071 (*tested*), so the application must declare its callback `__cdecl`.
 
+### setjmp and longjmp
+
+`jmp_buf` is 8 words in every model (`docs/spec/setjmp.md`): the return address's offset and segment (the segment is `CS` in the small and compact models), `SP` after `setjmp` returns, `BP`, `SI`, `DI`, `DS`, and a reserved word that `setjmp` sets to 0. `SS` is `DGROUP` and is not saved. `longjmp` returns through `setjmp` with those registers restored, `AX` = the value, and the direction flag clear.
+
+The experiments (`wcc` with the consumer flags, `wdis -a` of our own objects), for `if (setjmp(env) != 0) ...` inside a loop and for `longjmp(env, v)`:
+
+- **The call.** `setjmp` is called like any `__cdecl` function: `push` of `env` (offset, or segment then offset with far data), `call near ptr _setjmp` (`call far ptr` in the large model), then `add sp,2` (4 with far data), and `test ax,ax`. The caller removes the argument after the return, so `longjmp` must come back with `SP` as `setjmp`'s own return would leave it, not as it was before the push.
+- **Registers kept live.** The loop keeps its counter and sum in `SI` and `DI` across the call, and its frame in `BP`; `AX`, `BX`, `CX`, `DX` and `ES` are not kept. These are what `longjmp` restores.
+- **`DS`.** With far data the caller does `push ss` / `pop ds` before the call, as before every `__cdecl` call, and reloads `DS` before it next dereferences a far pointer. So the `DS` `setjmp` saves is `DGROUP`.
+
 ### Variables
 
 Global variables are `_name` whether or not they are declared `__cdecl` (*tested*). libc16 headers declare them `__cdecl` anyway, for uniformity.
