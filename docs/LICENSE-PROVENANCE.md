@@ -104,6 +104,15 @@ For #9, the design session found from libc16's own link maps that the word-align
 
 The compact and large libraries (decision 11) are built from the same sources as the small one. The conventions they follow (`docs/ABI.md`, "Memory models") were found by compiling our own C in each model and disassembling our own objects. Each member kept its author: the design session ported its own assembly members and pragmas (`crt/model.inc`, `int86`, `int86x`, `segread`, `bdos`, `kbhit` and the C members' register pragmas), and separate sessions, each given a copy of the repository holding only its own members' sources and the others as prebuilt objects, ported the startup, the arithmetic helpers, the heap and the number formatting, under the same instructions as before. Each checked that its members' small-model objects did not change.
 
+### `libc16_systeme`
+
+`libc16_systeme` (0.15, #31) is for `gr-dos/perl16`, which runs shell commands containing double quotes with `system` and so loses its changes to `%ENV`. It was written clean-room, in two sessions, as the spawn functions were:
+
+- **Design session.** It wrote the `libc16_systeme` section of `docs/spec/process.md`, the declaration in `<process.h>`, `tests/process/systeme.c` and its cases, and the change to `tests/process/child.c` that prints the raw command tail, committed before any code. Its sources: libc16's own `system` and spawn spec and members; Ralf Brown's Interrupt List for INT 21h 4B00h, 48h and 49h; gr-dos/libc16#31; and its own DOSBox-X experiments, which ran the tests against a throwaway stand-in calling `__libc16_dosexec` to check their expected output, and which was not committed or shown to the implementation session. It read no Perl, Open Watcom runtime or other C library source.
+- **Implementation session.** It worked in a copy of the repository without git history, told to read nothing outside it. It reported reading only the process spec, the process members and their headers, `include/process.h`, the tests, the Makefile and two docs for references, and running the tools on libc16's own objects. It moved the environment block out of `spawnx` into a new private member, `envblock`, made `system`'s member hold a core shared with `libc16_systeme` (`crt/systeme.c`, a one-line wrapper), and added `envblock` to the members files of the programs that call a spawn function. It changed no spec or test otherwise.
+
+No Open Watcom runtime source or header was read and none of its libraries was disassembled.
+
 ### The heap's scaling
 
 0.14 (#30) rewrites `malloc`, `free` and `realloc` so that their time does not grow with the number of blocks, for `gr-dos/perl16`'s Perl 3, whose hash and recursion tests took minutes with 0.12. It was written clean-room, in two sessions, as the earlier heap was:

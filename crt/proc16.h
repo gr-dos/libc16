@@ -1,4 +1,5 @@
-/* Private to libc16: the spawn functions' core (docs/spec/process.md). */
+/* Private to libc16: the cores of the spawn functions, system and
+ * libc16_systeme (docs/spec/process.md). */
 
 #ifndef LIBC16_PROC16_H
 #define LIBC16_PROC16_H
@@ -31,6 +32,28 @@ int __libc16_spawnp(const char *name, unsigned env, const char *tail);
  * for a non-null envp, the environment block, and runs path with try. */
 int __libc16_spawnx(int mode, const char *path, char * const *argv,
     char * const *envp, __libc16_try try);
+
+/* Builds the environment block from envp (not null): each string, then
+ * one more zero, in memory from INT 21h 48h. Returns its segment, or 0
+ * with errno E2BIG (over 32767 bytes) or ENOMEM (crt/envblock.c). */
+unsigned __libc16_envblock(char * const *envp);
+
+/* Builds an environment block, as __libc16_envblock does. */
+typedef unsigned (*__libc16_envfn)(char * const *envp);
+
+/* INT 21h 49h: frees the block at seg, from __libc16_envblock. */
+void __libc16_dosfree(unsigned seg);
+#pragma aux __libc16_dosfree = \
+    "mov ah, 49h" \
+    "int 21h" \
+    parm [es] modify exact [ax];
+
+/* system and libc16_systeme: runs COMSPEC (or \COMMAND.COM) with the
+ * tail " /C " and cmd as it is, and, if env and envp are not null, the
+ * environment block env builds from envp; for a null cmd, 1 if the
+ * command processor exists, else 0 (crt/system.c). system passes a null
+ * env, so links no environment block. */
+int __libc16_system(const char *cmd, char * const *envp, __libc16_envfn env);
 
 /* What __libc16_dosexec returns for DOS errors 2, 3 and 15: try the next
  * name. */

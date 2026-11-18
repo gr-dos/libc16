@@ -5,20 +5,6 @@
 #include "io16.h"
 #include "proc16.h"
 
-/* INT 21h 48h: the segment, or DX 0xFFFF on failure */
-static unsigned long dos_alloc(unsigned paras);
-#pragma aux dos_alloc = \
-    "mov ah, 48h" \
-    "int 21h" \
-    "sbb dx, dx" \
-    parm [bx] value [dx ax] modify exact [ax bx dx];
-
-static void dos_free(unsigned seg);
-#pragma aux dos_free = \
-    "mov ah, 49h" \
-    "int 21h" \
-    parm [es] modify exact [ax];
-
 int __libc16_spawnext(const char *name, unsigned env, const char *tail)
 {
     char buf[EXEC_NAME_MAX];
@@ -63,9 +49,7 @@ int __libc16_spawnx(int mode, const char *path, char * const *argv,
     char tail[TAIL_MAX + 2];
     char *d, *end;
     const char *s, *p;
-    char __far *e;
-    unsigned long a;
-    unsigned n, seg;
+    unsigned seg;
     int r, quote, bs;
     char c;
 
@@ -106,32 +90,12 @@ int __libc16_spawnx(int mode, const char *path, char * const *argv,
 
     /* the environment block */
     seg = 0;
-    if (envp != NULL) {
-        n = 1;
-        for (argv = envp; (s = *argv) != NULL; argv++) {
-            do {
-                if (++n > 0x7fff)
-                    goto big;
-            } while (*s++ != '\0');
-        }
-        /* one byte more, for an empty block's second zero */
-        a = dos_alloc((n >> 4) + 1);
-        if (DOS_FAILED(a)) {
-            errno = ENOMEM;
-            return -1;
-        }
-        seg = DOS_AX(a);
-        e = ((__segment)seg) :> ((char __near *)0);
-        e[1] = '\0';
-        for (argv = envp; (s = *argv) != NULL; argv++)
-            while ((*e++ = *s++) != '\0')
-                ;
-        *e = '\0';
-    }
+    if (envp != NULL && (seg = __libc16_envblock(envp)) == 0)
+        return -1;
 
     r = try(path, seg, tail);
     if (seg != 0)
-        dos_free(seg);
+        __libc16_dosfree(seg);
     if (r < 0)
         return __libc16_doserr(-r);
     return r;

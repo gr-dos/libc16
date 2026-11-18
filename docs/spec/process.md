@@ -1,7 +1,7 @@
 # Spec: running programs
 
 **Headers:** `<process.h>`, `<stdlib.h>` (`system`)  
-**Members:** `system`, `libc16_systeme`, `spawnl`, `spawnv`, `spawnve`, `spawnvp`, `spawnvpe`, `getpid`, each its own member; private members `spawnx` (the shared core: the mode, the command tail, the environment block, the extensions), `spawnp` (the `PATH` search) and `dosexec` (INT 21h 4B00h and 4Dh, in assembly); in each of the small, compact and large libraries (decision 11)  
+**Members:** `system`, `libc16_systeme`, `spawnl`, `spawnv`, `spawnve`, `spawnvp`, `spawnvpe`, `getpid`, each its own member; private members `spawnx` (the spawn functions' core: the mode, the command tail, the extensions), `envblock` (the environment block from `envp`, shared by the `e` forms and `libc16_systeme`), `spawnp` (the `PATH` search) and `dosexec` (INT 21h 4B00h and 4Dh, in assembly); `system`'s member also holds the core it shares with `libc16_systeme`; in each of the small, compact and large libraries (decision 11)  
 **Tests:** `tests/process` (run by `tests/run-dos`, in every model)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation. `dosexec` is written in assembly: under DOS 2.x, INT 21h 4B00h returns with every register changed, `SS` and `SP` included, which C cannot express.
