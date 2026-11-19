@@ -11,7 +11,7 @@ FILE * __cdecl fopen(const char *path, const char *mode)
 {
     FILE *fp;
     int oflag, fd;
-    unsigned char flag;
+    unsigned char flag, seen = 0, c;
 
     switch (*mode++) {
     case 'r':
@@ -27,17 +27,24 @@ FILE * __cdecl fopen(const char *path, const char *mode)
         flag = _IOWRT;
         break;
     default:
-        errno = EINVAL;
-        return NULL;
+        goto invalid;
     }
     oflag |= O_TEXT;
-    if (*mode == 'b') {
-        oflag ^= O_TEXT | O_BINARY;
-        mode++;
-    }
-    if (*mode != '\0') {
-        errno = EINVAL;
-        return NULL;
+    /* Then "+", "b", both in either order, or neither: each at most once. */
+    while ((c = *mode++) != '\0') {
+        if (c == '+' && !(seen & 1)) {
+            /* For reading and writing: O_RDWR in place of the access. */
+            oflag = (oflag & ~(O_WRONLY | O_RDWR)) | O_RDWR;
+            flag = _IOREAD | _IOWRT;
+            seen |= 1;
+        } else if (c == 'b' && !(seen & 2)) {
+            oflag ^= O_TEXT | O_BINARY;
+            seen |= 2;
+        } else {
+invalid:
+            errno = EINVAL;
+            return NULL;
+        }
     }
     if ((fp = __libc16_stream()) == NULL)
         return NULL;

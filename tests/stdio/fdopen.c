@@ -107,9 +107,9 @@ int main(void)
     /* invalid modes, with the handle left as it was */
     fd = open("FD1.TXT", O_RDONLY | O_BINARY);
     CHECK(fd >= 0 && lseek(fd, 1L, SEEK_SET) == 1L);
-    CHECK(refused(fd, "r+", EINVAL, O_BINARY, 1L));
-    CHECK(refused(fd, "rb+", EINVAL, O_BINARY, 1L));
-    CHECK(refused(fd, "rt+", EINVAL, O_BINARY, 1L));
+    CHECK(refused(fd, "r++", EINVAL, O_BINARY, 1L));
+    CHECK(refused(fd, "rb+b", EINVAL, O_BINARY, 1L));
+    CHECK(refused(fd, "rt+t", EINVAL, O_BINARY, 1L));
     CHECK(refused(fd, "x", EINVAL, O_BINARY, 1L));
     CHECK(refused(fd, "", EINVAL, O_BINARY, 1L));
     CHECK(refused(fd, "rbt", EINVAL, O_BINARY, 1L));

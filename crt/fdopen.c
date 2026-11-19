@@ -8,7 +8,7 @@
 FILE * __cdecl fdopen(int fd, const char *mode)
 {
     FILE *fp;
-    unsigned char flag = _IOWRT, set = 0, keep = 0xFF;
+    unsigned char flag = _IOWRT, set = 0, keep = 0xFF, seen = 0, c;
 
     switch (*mode++) {
     case 'r':
@@ -22,17 +22,22 @@ FILE * __cdecl fdopen(int fd, const char *mode)
     default:
         goto invalid;
     }
-    if (*mode == 'b') {
-        set |= FD_BINARY;
-        mode++;
-    } else if (*mode == 't') {
-        keep = ~FD_BINARY;
-        mode++;
-    }
-    if (*mode != '\0') {
+    /* Then "+", one of "b" and "t", both in either order, or neither. */
+    while ((c = *mode++) != '\0') {
+        if (c == '+' && !(seen & 1)) {
+            flag = _IOREAD | _IOWRT;
+            seen |= 1;
+        } else if (c == 'b' && !(seen & 2)) {
+            set |= FD_BINARY;
+            seen |= 2;
+        } else if (c == 't' && !(seen & 2)) {
+            keep = ~FD_BINARY;
+            seen |= 2;
+        } else {
 invalid:
-        errno = EINVAL;
-        return NULL;
+            errno = EINVAL;
+            return NULL;
+        }
     }
     if ((unsigned)fd >= FD_MAX || DOS_FAILED(__libc16_dos_devinfo(fd))) {
         errno = EBADF;

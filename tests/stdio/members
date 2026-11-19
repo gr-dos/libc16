@@ -6,3 +6,5 @@ rdwr: cstart close doserr errno fclose fdtab fgetc fopen fread fwrite memcmp mem
 seek: close cstart doserr errno fclose fdtab fgetc fopen fputc fputs fread fseek ftell lseek memcmp memcpy open read strlen ungetc write streams bufhook
 clear: clearerr close cstart doserr errno fclose fdtab fgetc fopen fputc open read ungetc write streams bufhook
 fdopen: close cstart doserr dup errno fclose fdopen fdtab fgetc fgets fopen fputc fputs lseek memcmp open read setmode strcmp streams strlen write bufhook
+update: close cstart doserr errno fclose fdopen fdtab fflush fgetc fgets fopen fputc fputs fread fseek ftell lseek memcmp memcpy open read strcmp streams strlen unlink write bufhook
+updbuf: bufexit bufhook bufio close cstart doserr errno fclose fdtab fgetc fgets fopen fputs free fseek ftell malloc memcpy open read setbuf setvbuf strcmp streams strlen unlink write
