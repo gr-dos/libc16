@@ -5,3 +5,4 @@ process: close cstart dosexec doserr envblock errno fdtab getenv getpid int86 in
 nopath: cstart dosexec doserr envblock errno spawnl spawnv spawnve spawnx
 system: args argv close cstart dosexec doserr errno fdtab getenv int86 intdos memset mkdir open read rmdir strcmp strcpy strstr system unlink write
 systeme: args argv close cstart dosexec doserr envblock errno fdtab free getenv int86 int86x intdos intdosx malloc memset mkdir open read rmdir segread strcmp strcpy strstr system systeme unlink
+bufkid: bufexit bufhook bufio cstart doserr dosexec envblock errno fdtab fputs free getenv malloc memcpy setvbuf spawnl spawnx stdout strlen system systeme write

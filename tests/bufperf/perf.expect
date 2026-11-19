@@ -1,0 +1,5 @@
+# Writes and ticks vary by model; only the shape and "ok" are checked.
+/^print4: unbuffered 8000 writes \d+ ticks, buffered \d+ writes \d+ ticks$/
+/^bytes: unbuffered 20000 writes \d+ ticks, buffered \d+ writes \d+ ticks$/
+/^blocks: unbuffered \d+ writes \d+ ticks, buffered \d+ writes \d+ ticks$/
+ok

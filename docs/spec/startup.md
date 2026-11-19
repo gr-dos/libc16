@@ -99,7 +99,7 @@ The expected outputs in `tests/startup/*.expect` are part of this spec.
 
 **Header:** `<stdlib.h>`, `void exit(int status)` (`__cdecl`; symbol `_exit`).
 
-**Must:** call each pointer in the termination table ("Core startup", "Termination table"), in table order, then terminate the program with INT 21h function 4Ch, `AL` = the low byte of `status`. It does not return. Each routine is called near, or far in the large model, with `SS` = `DGROUP`, the direction flag clear and, in the small model, `DS` = `DGROUP`: what C code expects in each model (`docs/ABI.md`), as for an init routine. Output streams are unbuffered (`docs/spec/stdio.md`), so nothing else needs flushing; DOS closes the program's handles.
+**Must:** call each pointer in the termination table ("Core startup", "Termination table"), in table order, then terminate the program with INT 21h function 4Ch, `AL` = the low byte of `status`. It does not return. Each routine is called near, or far in the large model, with `SS` = `DGROUP`, the direction flag clear and, in the small model, `DS` = `DGROUP`: what C code expects in each model (`docs/ABI.md`), as for an init routine. Buffered stream output is written by a routine in the table, linked with `setvbuf` and `setbuf` (`docs/spec/stdio.md`, "Termination"); DOS closes the program's handles.
 
 A routine may change `DS` in the compact and large models, as an init routine may, so `exit` and the startup do not read the table through `DS` after calling one without setting `DS` again.
 

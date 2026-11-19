@@ -1,0 +1,14 @@
+before spawnl
+name[C:\CHILD.EXE]
+arg[spawned]
+before system
+name[C:\CHILD.EXE]
+arg[/C]
+arg[run]
+before libc16_systeme
+name[C:\CHILD.EXE]
+arg[/C]
+arg[again]
+partial: name[C:\CHILD.EXE]
+arg[last]
+end

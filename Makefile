@@ -111,7 +111,7 @@ SUITE_EXES := $(patsubst tests/%.c,$(TEST)/%.EXE,$(SUITE_SRCS))
 TEST_OBJS := $(patsubst %,$(TEST)/startup/%.obj,$(STARTUP)) $(TEST)/startup/codepad.obj $(TEST)/startup/codeodd.obj \
 	$(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj \
 	$(TEST)/startup/inittab.obj $(TEST)/startup/finitab.obj \
-	$(TEST)/io/seekfail.obj $(TEST)/dos/esafter.obj $(TEST)/setjmp/sjasm.obj $(TEST)/signal/sigasm.obj \
+	$(TEST)/io/seekfail.obj $(TEST)/stdbuf/wrhook.obj $(TEST)/dos/esafter.obj $(TEST)/setjmp/sjasm.obj $(TEST)/signal/sigasm.obj \
 	$(TEST)/support/testio.obj \
 	$(SUITE_EXES:.EXE=.obj)
 
@@ -163,6 +163,10 @@ $(TEST)/io/io.EXE: $(TEST)/io/seekfail.obj
 
 # stdio's seek test also links it, to make fseek's and ftell's seeks fail.
 $(TEST)/stdio/seek.EXE: $(TEST)/io/seekfail.obj
+
+# The buffered-output tests that count, shorten or fail DOS writes link
+# a hook on them.
+$(foreach p,setvbuf wfail wcount,$(TEST)/stdbuf/$(p).EXE) $(TEST)/bufperf/perf.EXE: $(TEST)/stdbuf/wrhook.obj
 
 # dos also links a helper that calls int86x with a chosen ES.
 $(TEST)/dos/dos.EXE: $(TEST)/dos/esafter.obj

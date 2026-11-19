@@ -1,0 +1,11 @@
+# Each test program links only the members it calls.
+
+bufabrt: abort bufexit bufhook bufio cstart doserr errno fdtab fflush fopen fputs free malloc memcpy open setvbuf stdout streams strlen write
+bufchk: close cstart doserr errno fdtab memcmp open read strlen
+bufexit: bufexit bufhook bufio cstart doserr errno exit fdtab fopen fputs free malloc memcpy open setvbuf stdout streams strlen write
+bufline: bufexit bufhook bufio cstart doserr errno fdtab fflush fputs free malloc memcpy setvbuf stdout strlen write
+bufout: atexit bufexit bufhook bufio cstart doserr errno fdtab fputs free malloc memcpy setvbuf stdout strlen write
+setvbuf: bufexit bufhook bufio close cstart doserr errno fclose fdopen fdtab fflush fgetc filelen fopen fputc fputs fread free fseek ftell fwrite malloc memcmp memcpy open read setbuf setvbuf streams strlen write
+wcount: bufexit bufhook bufio close cstart doserr errno fclose fdtab filelen fopen fputc fputs free fwrite i4d malloc memcmp memcpy open read setvbuf streams strlen u4d write
+wfail: bufexit bufhook bufio close cstart doserr errno fclose fdtab fflush filelen fopen fputc fputs free fseek ftell fwrite malloc memcmp memcpy open read setvbuf streams strlen write
+setbuf: bufexit bufhook bufio cstart doserr errno fdtab fputs memcpy setbuf stdout strlen write

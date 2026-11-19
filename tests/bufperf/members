@@ -1,0 +1,3 @@
+# Each test program links only the members it calls.
+
+perf: bufexit bufhook bufio close cstart doserr errno fclose fdtab fopen fputc fputs free fwrite malloc memcpy open setvbuf streams strlen write

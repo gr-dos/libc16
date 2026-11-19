@@ -1,0 +1,5 @@
+# Buffered output's time and DOS writes (docs/spec/stdio.md,
+# "Performance"; tests/run-dos): NAME STATUS PROGRAM [ARGUMENTS]. Its own
+# suite, so that it has its own time limit.
+
+perf 0 perf
