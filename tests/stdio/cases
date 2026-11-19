@@ -6,3 +6,5 @@ rdwr 0 rdwr
 seek 0 seek
 clear 0 clear
 fdopen 0 fdopen
+update 0 update
+updbuf 0 updbuf

@@ -116,6 +116,14 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 
 0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
+0.17 adds the update modes to `fopen` and `fdopen` (`docs/spec/stdio.md`, "Update streams"): `r+`, `w+` and `a+`, with `b` (and, for `fdopen`, `t`) before or after the `+`, for gr-dos/tcl16's `open` (its `tests/tcl16/openplus`). An update stream reads and writes one file through one handle. An update stream's output is unbuffered, even after `setvbuf` or `setbuf`, which treat it as a read stream (its input buffer is the only buffer it has), so a read may follow a write directly; a write after a read needs `fseek` first, as C89 says, unless the read found the end of the file (`fflush` does nothing on input). `fopen`'s other modes, and every other member, are unchanged.
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `fopen` | 155 | 181 | 185 | was 120 / 151 / 155 |
+| `fdopen` | 184 | 195 | 197 | was 148 / 183 / 185 |
+| `setvbuf` | 109 | 128 | 143 | was 101 / 123 / 133; allocates no buffer for an update stream |
+
 0.16 adds buffered stream output (#34, `docs/spec/stdio.md`, "Buffering"): C89's `setvbuf` and `setbuf`, with `_IOFBF`, `_IOLBF` and `_IONBF`. Every stream still starts unbuffered, so a program that does not call them writes, and links, as before, but for `bufhook`'s two pointers. perl16's clean-runtime build was 51.5% slower than its Open Watcom build printing 2,000 lines of four items each (#34), about 8,000 DOS writes; with a buffer that workload makes 59 (`tests/bufperf`). perl16 should ask for buffers itself, at startup and for each file it opens for writing:
 
     setvbuf(stdout, NULL, isatty(1) ? _IOLBF : _IOFBF, BUFSIZ);

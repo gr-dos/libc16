@@ -105,6 +105,10 @@ For #9, the design session found from libc16's own link maps that the word-align
 
 The compact and large libraries (decision 11) are built from the same sources as the small one. The conventions they follow (`docs/ABI.md`, "Memory models") were found by compiling our own C in each model and disassembling our own objects. Each member kept its author: the design session ported its own assembly members and pragmas (`crt/model.inc`, `int86`, `int86x`, `segread`, `bdos`, `kbhit` and the C members' register pragmas), and separate sessions, each given a copy of the repository holding only its own members' sources and the others as prebuilt objects, ported the startup, the arithmetic helpers, the heap and the number formatting, under the same instructions as before. Each checked that its members' small-model objects did not change.
 
+### `fopen`'s and `fdopen`'s update modes
+
+The update modes (0.17) are for `gr-dos/tcl16`, whose `open` passes `r+`, `w+` and `a+` to `fopen`. One session wrote the "Update streams" section of `docs/spec/stdio.md` and `tests/stdio/update.c` first, then changed `crt/fopen.c` and `crt/fdopen.c` from that spec: each now reads `+` and `b` (or `t`) in either order and opens for reading and writing. Rebased onto buffered output (0.16), `crt/setvbuf.c` allocates no buffer for an update stream, which `__libc16_bufset` already treats as a read stream. Stream code is not among the modules decision 6 gives to a separate implementation session. Its sources were C89 7.9.5.3 (update streams) and libc16's own stdio and I/O spec, members and tests. It read no Open Watcom runtime source or other C library's source, and disassembled no library but libc16's own objects, for their sizes.
+
 ### `libc16_systeme`
 
 `libc16_systeme` (0.15, #31) is for `gr-dos/perl16`, which runs shell commands containing double quotes with `system` and so loses its changes to `%ENV`. It was written clean-room, in two sessions, as the spawn functions were:

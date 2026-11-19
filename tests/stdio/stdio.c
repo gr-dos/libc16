@@ -62,7 +62,7 @@ int main(void)
     /* modes and errors */
     CHECK(fopen("NOSUCH.TXT", "r") == NULL && errno == ENOENT);
     errno = 0;
-    CHECK(fopen("T.TXT", "r+") == NULL && errno == EINVAL);
+    CHECK(fopen("T.TXT", "r++") == NULL && errno == EINVAL);
     errno = 0;
     CHECK(fopen("T.TXT", "rw") == NULL && errno == EINVAL);
     errno = 0;
