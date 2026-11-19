@@ -41,8 +41,10 @@ int __libc16_system(const char *cmd, char * const *envp, __libc16_envfn env)
     seg = 0;
     if (env != NULL && envp != NULL && (seg = env(envp)) == 0)
         return -1;
-    /* Buffered output before the child's, which shares the handles. */
-    BUFCTL(NULL, BUF_ALL);
+    /* Buffered output before the child's, which shares the handles; a
+     * child must not run without it. */
+    if (FLUSH_FAILED(seg))
+        return -1;
     r = __libc16_dosexec(sh, seg, tail);
     if (seg != 0)
         __libc16_dosfree(seg);

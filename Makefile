@@ -166,7 +166,8 @@ $(TEST)/stdio/seek.EXE: $(TEST)/io/seekfail.obj
 
 # The buffered-output tests that count, shorten or fail DOS writes link
 # a hook on them.
-$(foreach p,setvbuf wfail wcount,$(TEST)/stdbuf/$(p).EXE) $(TEST)/bufperf/perf.EXE: $(TEST)/stdbuf/wrhook.obj
+$(foreach p,setvbuf wfail wcount,$(TEST)/stdbuf/$(p).EXE) $(TEST)/bufperf/perf.EXE \
+	$(TEST)/process/buffail.EXE: $(TEST)/stdbuf/wrhook.obj
 
 # dos also links a helper that calls int86x with a chosen ES.
 $(TEST)/dos/dos.EXE: $(TEST)/dos/esafter.obj

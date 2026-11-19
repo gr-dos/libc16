@@ -122,7 +122,7 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
     /* after each fopen or fdopen for writing */
     setvbuf(fp, NULL, _IOFBF, BUFSIZ);
 
-and leave `stderr` unbuffered. The buffers come from the far heap in the large model, not from `DGROUP`; the engine adds 41 bytes to `DGROUP` (37 compact, 21 small), and `bufhook` 8 (4). A buffered stream's output is written when the buffer fills, by `fflush`, `fclose`, `fseek`, `setvbuf`, at the end of a line for a line-buffered stream, before any input refill for line-buffered streams, before `system`, `libc16_systeme` and the spawn functions run a child, and by `exit` or returning from `main`; not by `abort`, a signal's default action or a direct DOS exit. Code that writes to a stream's handle with `write`, or `dup2`s onto it, must `fflush` the stream first. A failed or short write sets the error indicator and `errno` (`ENOSPC` for a full disk), fails the call that made it, and keeps earlier calls' unwritten output pending for a later `fflush`. `FILE` keeps its size and layout, so `gr-dos/libkitchen16`'s `printf` family, which writes through `fwrite`, is buffered with no change.
+and leave `stderr` unbuffered. The buffers come from the far heap in the large model, not from `DGROUP`; the engine adds 41 bytes to `DGROUP` (37 compact, 21 small), and `bufhook` 8 (4). A buffered stream's output is written when the buffer fills, by `fflush`, `fclose`, `fseek`, `setvbuf`, at the end of a line for a line-buffered stream, before any input refill for line-buffered streams, before `system`, `libc16_systeme` and the spawn functions run a child (which they do not run, returning -1, if that write fails), and by `exit` or returning from `main`; not by `abort`, a signal's default action or a direct DOS exit. Code that writes to a stream's handle with `write`, or `dup2`s onto it, must `fflush` the stream first. A failed or short write sets the error indicator and `errno` (`ENOSPC` for a full disk), fails the call that made it, and keeps earlier calls' unwritten output pending for a later `fflush`. `FILE` keeps its size and layout, so `gr-dos/libkitchen16`'s `printf` family, which writes through `fwrite`, is buffered with no change.
 
 Sizes in bytes of code, from `wdis` of each object, and data:
 
@@ -142,8 +142,8 @@ Sizes in bytes of code, from `wdis` of each object, and data:
 | `ftell` | 423 | 464 | 469 | was 414 / 442 / 447; links nothing new |
 | `fgetc` | 135 | 176 | 187 | was 118 / 151 / 153 |
 | `fread` | 261 | 311 | 324 | was 225 / 268 / 272 |
-| `system` | 248 | 316 | 340 | was 231 / 295 / 311 |
-| `spawnx` (private) | 497 | 663 | 682 | was 480 / 643 / 651 |
+| `system` | 267 | 332 | 358 | was 231 / 295 / 311 |
+| `spawnx` (private) | 513 | 674 | 693 | was 480 / 643 / 651 |
 
 0.15 adds `libc16_systeme(cmd, envp)` to `<process.h>` (#31, `docs/spec/process.md`): `system` with an environment. `cmd` reaches the command processor byte for byte after ` /C `, as with `system`, so quotes, backslashes and redirection are the shell's to interpret; the child's environment is built from `envp` as `spawnve` builds it, and a null `envp` inherits, as `system` does. The command processor is still the parent's `COMSPEC`. perl16 can run every shell command with its `%ENV` this way, instead of falling back to `system` for commands with double quotes:
 

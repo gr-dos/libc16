@@ -102,7 +102,7 @@ and, for each stream it opens for writing, `setvbuf(fp, NULL, _IOFBF, BUFSIZ)`. 
   - by `fflush` on the stream, or `fflush(NULL)`; by `fclose`; by `setvbuf` or `setbuf` on the stream;
   - by `fseek` on the stream (`ftell` writes nothing, and counts pending bytes in the position, "File positions");
   - for a **line-buffered** stream, whenever any stream reads from its handle to refill its buffer (`fgetc`, `getc`, `fgets`, and `fread` beyond the buffer), as C99 7.19.3 has it, so that a prompt appears before input is read; fully buffered streams are not written then. Input taken from a stream's buffer reads nothing and writes nothing;
-  - by `system`, `libc16_systeme` and the spawn functions, for every stream, before the child runs (`docs/spec/process.md`), so that a child writing to an inherited handle writes after the parent's earlier output;
+  - by `system`, `libc16_systeme` and the spawn functions, for every stream, before the child runs (`docs/spec/process.md`), so that a child writing to an inherited handle writes after the parent's earlier output; if that write fails, the function runs no child and returns -1 with `errno` from the write;
   - at termination ("Termination").
 - A binary-mode output call of at least the buffer's size is not copied: the pending output is written, then the call's bytes, each in one DOS write. Text-mode output always goes through the buffer, which is how it is translated.
 - `fputc`, `fputs` and `fwrite` buffer the same way, so `putc`, `putchar` and the formatted functions of `gr-dos/libkitchen16`, which write through `fwrite`, are buffered too.
@@ -159,6 +159,6 @@ All are `__cdecl`. 8086 instructions only. Moving the stream table out of `fopen
 - `bufline`: line-buffered standard output, and `write` to its handle overtaking a partial line.
 - `setbuf`: standard output in the program's own buffer, linking no heap (`tests/stdbuf/members`).
 
-`tests/process/bufkid` checks that `spawnl`, `system` and `libc16_systeme` write the pending output, a partial line included, before the child's. `tests/bufperf/perf` measures the time and writes ("Performance"). The members files of every suite check that a program that does not call `setvbuf` or `setbuf` links no more than `bufhook` for it.
+`tests/process/bufkid` checks that `spawnl`, `system` and `libc16_systeme` write the pending output, a partial line included, before the child's, and `tests/process/buffail` that a failed write stops the child. `tests/bufperf/perf` measures the time and writes ("Performance"). The members files of every suite check that a program that does not call `setvbuf` or `setbuf` links no more than `bufhook` for it.
 
 `tests/stdio/fdopen` covers `fdopen` with `r`, `w`, `a`, `rb`, `wt` and `ab` over handles from `open` and from `dup`, reading and writing through the stream and the handle's position before and after; `b`, `t` and neither, each against `setmode`'s report of the handle's mode; `w` leaving the file's length alone; `a` appending after a seek to the start; `fileno`; `fclose` closing the handle; invalid modes (`r+`, `x`, the empty string); a closed handle, -1 and 20; and a full table, with five streams already open, leaving the handle usable. It also writes a line to standard output through `fdopen(dup(1), "w")`, which must appear in its output.
