@@ -4,6 +4,7 @@
 #include <process.h>
 #include "io16.h"
 #include "proc16.h"
+#include "stdio16.h"
 
 int __libc16_spawnext(const char *name, unsigned env, const char *tail)
 {
@@ -93,6 +94,8 @@ int __libc16_spawnx(int mode, const char *path, char * const *argv,
     if (envp != NULL && (seg = __libc16_envblock(envp)) == 0)
         return -1;
 
+    /* Buffered output before the child's, which shares the handles. */
+    BUFCTL(NULL, BUF_ALL);
     r = try(path, seg, tail);
     if (seg != 0)
         __libc16_dosfree(seg);

@@ -2,6 +2,7 @@
 
 #include <io.h>
 #include <stdio.h>
+#include "stdio16.h"
 
 int __cdecl fgetc(FILE *fp)
 {
@@ -18,6 +19,8 @@ int __cdecl fgetc(FILE *fp)
         }
         if (fp->_flag & _IOEOF)
             return EOF;
+        /* Line-buffered output, such as a prompt, before input. */
+        BUFCTL(NULL, BUF_LINE);
         n = read(fp->_fd, fp->_base, fp->_bufsiz);
         if (n <= 0) {
             fp->_flag |= n == 0 ? _IOEOF : _IOERR;

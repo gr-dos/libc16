@@ -70,6 +70,9 @@ long __cdecl ftell(FILE *fp)
                 return __libc16_seekback(fp, here, err);
         }
     }
+    /* Pending output is after the handle's position. */
+    if (fp->_flag & _IOWBUF)
+        here += (unsigned)(fp->_ptr - fp->_base);
     /* A pushed-back byte is one byte back, and at 0 has no position. */
     if (fp->_flag & _IOUNGET)
         back++;

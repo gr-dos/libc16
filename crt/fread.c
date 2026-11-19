@@ -3,6 +3,7 @@
 #include <io.h>
 #include <stdio.h>
 #include <string.h>
+#include "stdio16.h"
 
 size_t __cdecl fread(void *ptr, size_t size, size_t nmemb, FILE *fp)
 {
@@ -33,7 +34,10 @@ size_t __cdecl fread(void *ptr, size_t size, size_t nmemb, FILE *fp)
         p += n;
         got += n;
     }
-    /* The rest straight from the file, in pieces read can return. */
+    /* The rest straight from the file, in pieces read can return, after
+     * line-buffered output, as for fgetc. */
+    if (got < want && !(fp->_flag & _IOEOF))
+        BUFCTL(NULL, BUF_LINE);
     while (got < want && !(fp->_flag & _IOEOF)) {
         n = want - got > 0x7fff ? 0x7fff : want - got;
         r = read(fp->_fd, p, n);

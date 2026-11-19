@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "io16.h"
 #include "proc16.h"
+#include "stdio16.h"
 
 int __libc16_system(const char *cmd, char * const *envp, __libc16_envfn env)
 {
@@ -40,6 +41,8 @@ int __libc16_system(const char *cmd, char * const *envp, __libc16_envfn env)
     seg = 0;
     if (env != NULL && envp != NULL && (seg = env(envp)) == 0)
         return -1;
+    /* Buffered output before the child's, which shares the handles. */
+    BUFCTL(NULL, BUF_ALL);
     r = __libc16_dosexec(sh, seg, tail);
     if (seg != 0)
         __libc16_dosfree(seg);
