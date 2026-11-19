@@ -23,11 +23,12 @@ typedef unsigned size_t;
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-/* The members are private to libc16. */
+/* The members are private to libc16. A write stream with a buffer
+ * (setvbuf) keeps its pending output from _base to _ptr. */
 typedef struct __libc16_file {
-    unsigned char *_ptr;    /* next byte to read from the buffer */
-    int _cnt;               /* bytes left in the buffer */
-    unsigned char *_base;   /* read buffer */
+    unsigned char *_ptr;    /* next byte to read from the buffer, or to fill */
+    int _cnt;               /* bytes left in the buffer to read */
+    unsigned char *_base;   /* the buffer */
     unsigned _bufsiz;
     int _fd;
     unsigned char _flag;
@@ -37,8 +38,16 @@ typedef struct __libc16_file {
 #define _IOREAD  0x01
 #define _IOWRT   0x02
 #define _IOUNGET 0x04
+#define _IOMYBUF 0x08    /* the buffer is from malloc */
 #define _IOEOF   0x10
 #define _IOERR   0x20
+#define _IOWBUF  0x40    /* output is buffered */
+#define _IOLBUF  0x80    /* ... and flushed after each \n */
+
+/* setvbuf's modes */
+#define _IOFBF 0
+#define _IOLBF 1
+#define _IONBF 2
 
 extern FILE __cdecl __libc16_stdin;
 extern FILE __cdecl __libc16_stdout;
@@ -68,6 +77,8 @@ int    __cdecl putc(int c, FILE *fp);
 int    __cdecl putchar(int c);
 int    __cdecl remove(const char *path);
 int    __cdecl rename(const char *oldname, const char *newname);
+void   __cdecl setbuf(FILE *fp, char *buf);
+int    __cdecl setvbuf(FILE *fp, char *buf, int mode, size_t size);
 int    __cdecl ungetc(int c, FILE *fp);
 
 #define feof(fp)   (((fp)->_flag & _IOEOF) != 0)

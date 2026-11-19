@@ -1,0 +1,11 @@
+# Buffered stream output (docs/spec/stdio.md, "Buffering")
+
+setvbuf 0 setvbuf
+wfail   0 wfail
+wcount  0 wcount
+bufout  7 bufout
+bufexit 5 bufexit
+bufabrt 3 bufabrt
+bufchk  0 bufchk
+bufline 0 bufline
+setbuf  0 setbuf

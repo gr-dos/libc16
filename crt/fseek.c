@@ -12,7 +12,14 @@ int __cdecl fseek(FILE *fp, long offset, int origin)
     int fd = fp->_fd;
     unsigned long here, r;
 
-    /* The target, before anything changes. A failed DOS seek does not
+    if (origin != SEEK_SET && origin != SEEK_CUR && origin != SEEK_END) {
+        errno = EINVAL;
+        return -1;
+    }
+    /* Pending output goes where it was written, before the handle moves. */
+    if ((fp->_flag & _IOWBUF) && __libc16_bufctl(fp, BUF_FLUSH) != 0)
+        return -1;
+    /* The target, before anything else changes. A failed DOS seek does not
      * move the handle; only SEEK_END's moves it before the last. */
     if (origin == SEEK_CUR) {
         if ((r = ftell(fp)) == (unsigned long)-1L)
@@ -31,8 +38,6 @@ int __cdecl fseek(FILE *fp, long offset, int origin)
             if (SEEK_FAILED(r))
                 return __libc16_seekback(fp, here, DOS_AX(r));
         }
-    } else if (origin != SEEK_SET) {
-        offset = -1L;
     }
     if (offset < 0) {
         errno = EINVAL;

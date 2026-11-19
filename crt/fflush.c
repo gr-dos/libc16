@@ -1,9 +1,10 @@
-/* fflush - libc16 (docs/spec/stdio.md); output is unbuffered */
+/* fflush - libc16 (docs/spec/stdio.md) */
 
 #include <stdio.h>
+#include "stdio16.h"
 
 int __cdecl fflush(FILE *fp)
 {
-    (void)fp;
-    return 0;
+    /* Nothing is pending unless setvbuf or setbuf linked the engine. */
+    return BUFCTL(fp, fp != NULL ? BUF_FLUSH : BUF_ALL);
 }

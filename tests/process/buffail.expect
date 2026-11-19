@@ -1,0 +1,15 @@
+-- spawnl fails
+-- spawnve fails short
+-- system fails
+-- libc16_systeme fails
+-- all run
+name[C:\CHILD.EXE]
+arg[spawnl]
+name[C:\CHILD.EXE]
+name[C:\CHILD.EXE]
+arg[/C]
+arg[system]
+name[C:\CHILD.EXE]
+arg[/C]
+arg[systeme]
+ok

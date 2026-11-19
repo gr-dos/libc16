@@ -60,6 +60,7 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `isalnum`, `isalpha`, `iscntrl`, `isdigit`, `isgraph`, `islower`, `isprint`, `ispunct`, `isspace`, `isupper`, `isxdigit`, `tolower`, `toupper` | `crt/*.c` | `docs/spec/ctype.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `tzdata`, `tzset`, `timecal`, `localtim` | `crt/*.c`, `crt/time16.h` | `docs/spec/time.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
 | `dostime`, `stat`, `chmod`, `mkdir`, `utime` | `crt/*.c` | `docs/spec/files.md` | Claude (Opus 5.5), design session; human review pending | Written from the spec |
+| `setvbuf`, `setbuf`, `bufio`, `bufexit`, `bufhook`; buffering in `fputc`, `fputs`, `fwrite`, `fflush`, `fclose`, `fseek`, `ftell`, `fgetc`, `fread`, `system` and `spawnx` | `crt/*.c`, `crt/bufexit.asm`, `crt/stdio16.h` | `docs/spec/stdio.md` | Claude (Opus 5.5), one session for spec, tests and code; human review pending | Written from the spec; see "Buffered output" |
 
 ### Strings, I/O, streams, the DOS interface, character classes, time and files
 
@@ -112,6 +113,12 @@ The compact and large libraries (decision 11) are built from the same sources as
 - **Implementation session.** It worked in a copy of the repository without git history, told to read nothing outside it. It reported reading only the process spec, the process members and their headers, `include/process.h`, the tests, the Makefile and two docs for references, and running the tools on libc16's own objects. It moved the environment block out of `spawnx` into a new private member, `envblock`, made `system`'s member hold a core shared with `libc16_systeme` (`crt/systeme.c`, a one-line wrapper), and added `envblock` to the members files of the programs that call a spawn function. It changed no spec or test otherwise.
 
 No Open Watcom runtime source or header was read and none of its libraries was disassembled.
+
+### Buffered output
+
+Buffered stream output (0.16, #34) is for `gr-dos/perl16`, whose clean-runtime build was about half again as slow as its Open Watcom build on a print-heavy workload, largely because each output call was a DOS write. It is ordinary library code, not startup, arithmetic helpers, heap or formatting, so decision 6 lets one session write the spec, the tests and the code, and one did: the spec ("Buffering" and the changes to "Functions" and "File positions" in `docs/spec/stdio.md`, and the related lines of `process.md`, `startup.md` and `stdlib.md`), the header declarations and the tests were committed before the code. Its sources: C89 7.9.3, 7.9.5.1, 7.9.5.2, 7.9.5.5, 7.9.5.6 and 7.10.4.3 and C99 7.19.3; Ralf Brown's Interrupt List for INT 21h functions 40h and 42h; libc16's own specs and members; gr-dos/libc16#34; and, of `gr-dos/libkitchen16`, `docs/spec/fmtio.md` and `src/fprintf.c`, to confirm that its formatted output writes through libc16's `fwrite`. It read no Perl, Open Watcom runtime or other C library source and disassembled none of their libraries. The termination routine (`bufexit`) is an entry in the existing termination table; `cstart` and `exit` are unchanged.
+
+The similarity audit scores the new members at most 0.07 (`bufio`, compact and large); `fflush`, now 25 to 29 runs, scores 0.16 (compact) and 0.14 (large), and `setbuf` 0.11 (compact): short members of a test and a call through a pointer.
 
 ### The heap's scaling
 

@@ -55,6 +55,14 @@ void __libc16_dosfree(unsigned seg);
  * env, so links no environment block. */
 int __libc16_system(const char *cmd, char * const *envp, __libc16_envfn env);
 
+/* Writes every stream's pending output before a child runs
+ * (crt/stdio16.h); if that fails, frees the environment block seg (if
+ * not 0) and is nonzero, with errno from the failed write, and the
+ * caller returns -1 without running the child. A macro, so that a
+ * program without buffering links nothing more than bufhook. */
+#define FLUSH_FAILED(seg) \
+    (BUFCTL(NULL, BUF_ALL) != 0 && ((seg) == 0 || (__libc16_dosfree(seg), 1)))
+
 /* What __libc16_dosexec returns for DOS errors 2, 3 and 15: try the next
  * name. */
 #define NOT_FOUND (-2)

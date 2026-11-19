@@ -24,3 +24,6 @@ set COMSPEC=C:\SYSDIR
 sysedir 0 systeme dir
 set COMSPEC=Z:\COMMAND.COM
 sysereal 0 systeme real
+set COMSPEC=C:\CHILD.EXE
+bufkid 0 bufkid
+buffail 0 buffail

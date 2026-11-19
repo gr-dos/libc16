@@ -2,6 +2,7 @@
 
 #include <io.h>
 #include <stdio.h>
+#include "stdio16.h"
 
 size_t __cdecl fwrite(const void *ptr, size_t size, size_t nmemb, FILE *fp)
 {
@@ -15,11 +16,13 @@ size_t __cdecl fwrite(const void *ptr, size_t size, size_t nmemb, FILE *fp)
     if (nmemb > 0xffffu / size)
         nmemb = 0xffffu / size;
     want = size * nmemb;
+    if (fp->_flag & _IOWBUF)
+        return __libc16_bufput(fp, p, want) / size;
     if (!(fp->_flag & _IOWRT)) {
         fp->_flag |= _IOERR;
         return 0;
     }
-    /* Output is unbuffered: the whole request goes to write, in pieces
+    /* Unbuffered: the whole request goes to write, in pieces
      * whose counts write can return. */
     while (put < want) {
         n = want - put > 0x7fff ? 0x7fff : want - put;

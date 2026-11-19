@@ -116,6 +116,35 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 
 0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
+0.16 adds buffered stream output (#34, `docs/spec/stdio.md`, "Buffering"): C89's `setvbuf` and `setbuf`, with `_IOFBF`, `_IOLBF` and `_IONBF`. Every stream still starts unbuffered, so a program that does not call them writes, and links, as before, but for `bufhook`'s two pointers. perl16's clean-runtime build was 51.5% slower than its Open Watcom build printing 2,000 lines of four items each (#34), about 8,000 DOS writes; with a buffer that workload makes 59 (`tests/bufperf`). perl16 should ask for buffers itself, at startup and for each file it opens for writing:
+
+    setvbuf(stdout, NULL, isatty(1) ? _IOLBF : _IOFBF, BUFSIZ);
+    /* after each fopen or fdopen for writing */
+    setvbuf(fp, NULL, _IOFBF, BUFSIZ);
+
+and leave `stderr` unbuffered. The buffers come from the far heap in the large model, not from `DGROUP`; the engine adds 41 bytes to `DGROUP` (37 compact, 21 small), and `bufhook` 8 (4). A buffered stream's output is written when the buffer fills, by `fflush`, `fclose`, `fseek`, `setvbuf`, at the end of a line for a line-buffered stream, before any input refill for line-buffered streams, before `system`, `libc16_systeme` and the spawn functions run a child (which they do not run, returning -1, if that write fails), and by `exit` or returning from `main`; not by `abort`, a signal's default action or a direct DOS exit. Code that writes to a stream's handle with `write`, or `dup2`s onto it, must `fflush` the stream first. A failed or short write sets the error indicator and `errno` (`ENOSPC` for a full disk), fails the call that made it, and keeps earlier calls' unwritten output pending for a later `fflush`. `FILE` keeps its size and layout, so `gr-dos/libkitchen16`'s `printf` family, which writes through `fwrite`, is buffered with no change.
+
+Sizes in bytes of code, from `wdis` of each object, and data:
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `setvbuf` | 101 | 123 | 133 | `bufio`, `malloc`, `free` |
+| `setbuf` | 29 | 47 | 50 | `bufio`; no heap |
+| `bufio` (private, the engine) | 1105 | 1484 | 1481 | `bufexit`, `bufhook`, `memcpy`, `fdtab`, `doserr`, `errno`; 18 / 34 / 36 bytes of BSS |
+| `bufexit` (private) | 10 | 12 | 14 | a termination-table entry (2 / 2 / 4) and 1 byte of BSS |
+| `bufhook` (private) | 0 | 0 | 0 | 4 / 4 / 8 bytes of BSS |
+| `fputc` | 115 | 152 | 154 | was 61 / 70 / 72; a buffered byte that is not `\n` goes in without a call |
+| `fputs` | 79 | 100 | 104 | was 57 / 73 / 77 |
+| `fwrite` | 156 | 182 | 184 | was 136 / 157 / 159 |
+| `fflush` | 32 | 43 | 56 | was 7 / 7 / 7 |
+| `fclose` | 69 | 83 | 85 | was 35 / 43 / 45 |
+| `fseek` | 283 | 303 | 311 | was 252 / 268 / 277 |
+| `ftell` | 423 | 464 | 469 | was 414 / 442 / 447; links nothing new |
+| `fgetc` | 135 | 176 | 187 | was 118 / 151 / 153 |
+| `fread` | 261 | 311 | 324 | was 225 / 268 / 272 |
+| `system` | 267 | 332 | 358 | was 231 / 295 / 311 |
+| `spawnx` (private) | 513 | 674 | 693 | was 480 / 643 / 651 |
+
 0.15 adds `libc16_systeme(cmd, envp)` to `<process.h>` (#31, `docs/spec/process.md`): `system` with an environment. `cmd` reaches the command processor byte for byte after ` /C `, as with `system`, so quotes, backslashes and redirection are the shell's to interpret; the child's environment is built from `envp` as `spawnve` builds it, and a null `envp` inherits, as `system` does. The command processor is still the parent's `COMSPEC`. perl16 can run every shell command with its `%ENV` this way, instead of falling back to `system` for commands with double quotes:
 
     char *shell_env[N];         /* "NAME=value" strings from %ENV, then NULL */

@@ -11,9 +11,10 @@ FDISK need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv`, `exit`
 and `atexit`; string and memory functions;
 `open`/`read`/`write`/`lseek` and friends with text mode, `isatty`, `dup`
 and `dup2`; `rename`, `unlink`, `remove`, `stat`, `fstat`, `getcwd`,
-`chdir`, `mkdir` and `rmdir`; unbuffered stdio streams with `fopen`,
+`chdir`, `mkdir` and `rmdir`; stdio streams with `fopen`,
 `fdopen`, `fgets`, `fputs`, `fseek`, `ftell`, `clearerr` and character
-I/O; `strtol`, `strtoul`, `qsort`, `rand`, `srand` and `abort`;
+I/O, unbuffered unless the program asks for a buffer with `setvbuf` or
+`setbuf`; `strtol`, `strtoul`, `qsort`, `rand`, `srand` and `abort`;
 `setjmp` and `longjmp`; `system`, `libc16_systeme` (`system` with an environment), `spawnl`,
 `spawnv`, `spawnve`, `spawnvp`, `spawnvpe` and `getpid`; `signal` and `raise`, with `SIGINT`
 from Ctrl-C; `time`,
