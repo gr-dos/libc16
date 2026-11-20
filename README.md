@@ -8,9 +8,9 @@ MIT licensed.
 
 It provides what the `gr-dos/*16` utilities and GR-DOS's ATTRIB, MEM and
 FDISK need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv`, `exit`
-and `atexit`; string and memory functions;
+and `atexit`; string and memory functions, `memchr` included;
 `open`/`read`/`write`/`lseek` and friends with text mode, `isatty`, `dup`
-and `dup2`; `rename`, `unlink`, `remove`, `stat`, `fstat`, `getcwd`,
+and `dup2`, and `_doserrno` beside `errno`; `rename`, `unlink`, `remove`, `stat`, `fstat`, `getcwd`,
 `chdir`, `mkdir` and `rmdir`; stdio streams with `fopen` and
 `fdopen` (update modes included), `fgets`, `fputs`, `fseek`, `ftell`, `clearerr` and character
 I/O, unbuffered unless the program asks for a buffer with `setvbuf` or
@@ -19,7 +19,7 @@ I/O, unbuffered unless the program asks for a buffer with `setvbuf` or
 `spawnv`, `spawnve`, `spawnvp`, `spawnvpe` and `getpid`; `signal` and `raise`, with `SIGINT`
 from Ctrl-C; `time`,
 `gmtime`, `localtime` and `strftime`;
-`malloc`/`free`; `_dos_findfirst`/`_dos_findnext`, `int86`/`int86x`,
+`malloc`/`free`; `_dos_findfirst`/`_dos_findnext`, `_dos_getftime`/`_dos_setftime`, `int86`/`int86x`,
 `intdos`/`intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`; the compiler's 32- and 64-bit helpers; and
 `libc16_ultoa`/`libc16_ltoa` in place of `printf`, which libc16 does not
 have. `docs/spec/` describes each function; `docs/ABI.md` is the
