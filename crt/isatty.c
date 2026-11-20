@@ -9,6 +9,7 @@ int __cdecl isatty(int fd)
     unsigned long r = __libc16_dos_devinfo(fd);
 
     if (DOS_FAILED(r)) {
+        _doserrno = DOS_AX(r);
         errno = EBADF;
         return 0;
     }

@@ -27,7 +27,7 @@ int __cdecl stat(const char *path, struct stat *buf)
     struct find_t f;
     char full[_MAX_PATH];
     unsigned mode;
-    int drive;
+    int drive, doserr = _doserrno;
 
     if (strpbrk(path, "*?") != NULL) {
         errno = ENOENT;
@@ -48,6 +48,8 @@ int __cdecl stat(const char *path, struct stat *buf)
             errno = ENOENT;
             return -1;
         }
+        /* found, so the search's error was no failure */
+        _doserrno = doserr;
         mode = S_IFDIR | S_IREAD | S_IWRITE | S_IEXEC;
         buf->st_size = 0;
         buf->st_mtime = __libc16_from_dos(0x21, 0);        /* 1980-01-01 */

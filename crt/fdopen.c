@@ -8,6 +8,7 @@
 FILE * __cdecl fdopen(int fd, const char *mode)
 {
     FILE *fp;
+    unsigned long r;
     unsigned char flag = _IOWRT, set = 0, keep = 0xFF, seen = 0, c;
 
     switch (*mode++) {
@@ -39,7 +40,13 @@ invalid:
             return NULL;
         }
     }
-    if ((unsigned)fd >= FD_MAX || DOS_FAILED(__libc16_dos_devinfo(fd))) {
+    if ((unsigned)fd >= FD_MAX) {
+        errno = EBADF;
+        return NULL;
+    }
+    r = __libc16_dos_devinfo(fd);
+    if (DOS_FAILED(r)) {
+        _doserrno = DOS_AX(r);
         errno = EBADF;
         return NULL;
     }

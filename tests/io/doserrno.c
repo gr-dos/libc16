@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include "check.h"
 
 void __cdecl wrhook_install(void);
@@ -22,6 +23,7 @@ int main(void)
 {
     int fd, h;
     unsigned n;
+    struct stat st;
 
     CHECK(_doserrno == 0);
 
@@ -94,6 +96,33 @@ int main(void)
     CHECK(_dos_read(h, buf, sizeof buf, &n) == 0 && n == 1 && _doserrno == 6);
     CHECK(_dos_close(h) == 0 && _doserrno == 6);
     CHECK(_dos_close(h) == 6 && errno == EBADF && _doserrno == 6);
+
+    /* errno that is not the table's: DOS's code all the same */
+    _doserrno = 0;
+    errno = 0;
+    CHECK(isatty(-1) == 0 && errno == EBADF && _doserrno == 6);
+    _doserrno = 0;
+    errno = 0;
+    CHECK(dup2(15, 16) == -1 && errno == EBADF && _doserrno == 6);
+    _doserrno = 77;
+    errno = 0;
+    CHECK(dup2(1, 20) == -1 && errno == EBADF && _doserrno == 77);
+    _doserrno = 0;
+    errno = 0;
+    CHECK(fdopen(15, "r") == NULL && errno == EBADF && _doserrno == 6);
+    _doserrno = 77;
+    errno = 0;
+    CHECK(fdopen(20, "r") == NULL && errno == EBADF && _doserrno == 77);
+    /* 3 from DOS, or 5 from DOSBox-X */
+    _doserrno = 0;
+    errno = 0;
+    CHECK(rename("DE.TMP", "NODIR\\X.TMP") == -1 && errno == ENOENT
+          && (_doserrno == 3 || _doserrno == 5));
+    /* a root directory: its failed search is not stat's failure */
+    _doserrno = 77;
+    CHECK(stat("C:\\", &st) == 0 && (st.st_mode & S_IFDIR) && _doserrno == 77);
+    CHECK(stat("C:\\NOFILE.XYZ", &st) == -1 && errno == ENOENT
+          && (_doserrno == 2 || _doserrno == 18));
 
     CHECK(remove("DE.TMP") == 0);
     return done();

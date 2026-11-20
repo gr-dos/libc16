@@ -86,6 +86,7 @@ int __cdecl rename(const char *oldname, const char *newname)
         /* DOS gives access denied (5) when newname exists, and DOSBox-X
          * also when its directory does not. */
         if (DOS_AX(r) == 5 && no_dir(newname)) {
+            _doserrno = 5;
             errno = ENOENT;
             return -1;
         }
