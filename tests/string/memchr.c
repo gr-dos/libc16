@@ -8,8 +8,9 @@
 static char __far far_s[] = "far\0data";
 #endif
 
-/* More than 32767 bytes would not fit; the match ends the search first. */
-static unsigned char big[1000];
+/* More than 32767 bytes, so that n does not fit in an int */
+#define BIG 40000u
+static unsigned char big[BIG];
 
 int main(void)
 {
@@ -46,13 +47,17 @@ int main(void)
     CHECK(memchr(bin, 0x7f00, sizeof bin) == bin);
     CHECK(memchr(s, 'o' - 256, 12) == s + 4);
     CHECK(memchr(bin, 0x42, sizeof bin) == NULL);
-    /* an unsigned size_t: n above 32767, with offsets past 255 */
+    /* an unsigned size_t: n and offsets above 32767, within the object */
     big[600] = 1;
-    big[999] = 2;
-    CHECK(memchr(big, 1, 40000u) == big + 600);
-    CHECK(memchr(big, 2, sizeof big) == big + 999);
-    CHECK(memchr(big, 2, sizeof big - 1) == NULL);
-    CHECK(memchr(big, 0, 0xffffu) == big);
+    big[33000u] = 2;
+    big[BIG - 1] = 3;
+    CHECK(memchr(big, 1, BIG) == big + 600);
+    CHECK(memchr(big, 2, BIG) == big + 33000u);
+    CHECK(memchr(big + 601, 2, BIG - 601) == big + 33000u);
+    CHECK(memchr(big, 2, 33000u) == NULL);
+    CHECK(memchr(big, 3, BIG) == big + BIG - 1);
+    CHECK(memchr(big, 3, BIG - 1) == NULL);
+    CHECK(memchr(big, 4, BIG) == NULL);
 
 #if defined(__COMPACT__) || defined(__LARGE__)
     CHECK(memchr(far_s, 'd', sizeof far_s) == far_s + 4);
