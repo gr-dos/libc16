@@ -2,19 +2,19 @@
 
 **Header:** `<string.h>`  
 **Members:** one per function  
-**Tests:** `tests/string` (`strupr` in `tests/string/upper`)
+**Tests:** `tests/string` (`strupr` in `tests/string/upper`, `memchr` in `tests/string/memchr`)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
 
 ## Sources
 
-- C89 7.11 (string handling): `memcmp`, `memcpy`, `memmove`, `memset`, `strcat`, `strchr`, `strcmp`, `strcpy`, `strerror`, `strlen`, `strncat`, `strncmp`, `strncpy`, `strpbrk`, `strrchr`, `strcspn`, `strstr`.
+- C89 7.11 (string handling): `memchr`, `memcmp`, `memcpy`, `memmove`, `memset`, `strcat`, `strchr`, `strcmp`, `strcpy`, `strerror`, `strlen`, `strncat`, `strncmp`, `strncpy`, `strpbrk`, `strrchr`, `strcspn`, `strstr`.
 - Microsoft C 5.1 run-time library reference, for the Microsoft names `strdup`, `stricmp`, `strlwr`, `strupr` and `strnicmp`; Microsoft C 6.0's and Open Watcom's documentation of `_fmemcpy`.
 - `docs/spec/io.md` for the `errno` values `strerror` describes.
 
 ## Standard functions
 
-Full C89 semantics. In particular: comparisons (`memcmp`, `strcmp`, `strncmp`) compare as `unsigned char` and return a negative, zero or positive `int`; `strchr` and `strrchr` find the terminating null when `c` is `'\0'`; `memcpy` of overlapping objects is undefined, and `memmove` copies as if through a temporary; `strncpy` pads with nulls to `n` bytes and does not terminate a source of `n` or more characters; `strncat` appends at most `n` characters and always a terminator; `strpbrk` returns the first character of `s` that is in `accept`, or a null pointer; `strcspn(s, reject)` is the length of the initial part of `s` containing no character of `reject` (`strlen(s)` if `reject` is empty); `strstr(s, find)` returns the first occurrence of the string `find` in `s`, `s` itself if `find` is empty, or a null pointer; `n` of 0 is valid for the `mem` functions and the `strn` functions.
+Full C89 semantics. In particular: comparisons (`memcmp`, `strcmp`, `strncmp`) compare as `unsigned char` and return a negative, zero or positive `int`; `strchr` and `strrchr` find the terminating null when `c` is `'\0'`; `memcpy` of overlapping objects is undefined, and `memmove` copies as if through a temporary; `strncpy` pads with nulls to `n` bytes and does not terminate a source of `n` or more characters; `strncat` appends at most `n` characters and always a terminator; `strpbrk` returns the first character of `s` that is in `accept`, or a null pointer; `strcspn(s, reject)` is the length of the initial part of `s` containing no character of `reject` (`strlen(s)` if `reject` is empty); `strstr(s, find)` returns the first occurrence of the string `find` in `s`, `s` itself if `find` is empty, or a null pointer; `memchr(s, c, n)` returns a pointer to the first of the `n` bytes at `s` equal to `c` converted to `unsigned char`, or a null pointer: it examines exactly those bytes, stopping at none of them, so a null byte is found like any other and nothing past the `n`th is read; `n` of 0 is valid for the `mem` functions and the `strn` functions.
 
 ## Microsoft functions
 

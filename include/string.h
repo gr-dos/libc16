@@ -15,6 +15,7 @@ typedef unsigned size_t;
 #define NULL ((void *)0)
 #endif
 
+void * __cdecl memchr(const void *s, int c, size_t n);
 int    __cdecl memcmp(const void *s1, const void *s2, size_t n);
 void * __cdecl memcpy(void *dst, const void *src, size_t n);
 void * __cdecl memmove(void *dst, const void *src, size_t n);
