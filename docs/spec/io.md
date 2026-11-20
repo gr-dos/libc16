@@ -1,7 +1,7 @@
 # Spec: low-level I/O and errno
 
 **Headers:** `<io.h>`, `<fcntl.h>`, `<sys/stat.h>`, `<errno.h>`  
-**Members:** `errno`; one per function (`isatty`, `dup` and `dup2` included); private members for the handle table and DOS error mapping  
+**Members:** `errno` and `_doserrno`, together; one per function (`isatty`, `dup` and `dup2` included); private members for the handle table and DOS error mapping  
 **Tests:** `tests/io`
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
@@ -10,6 +10,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 - INT 21h functions 3Ch (create), 3Dh (open), 3Eh (close), 3Fh (read), 40h (write; a count of 0 truncates at the file pointer), 42h (move file pointer), 43h (get attributes) and their error codes: Ralf Brown's Interrupt List; MS-DOS 2.0 `SYSCALL.DOC`. All are DOS 2.0 functions.
 - The interfaces, flag values and text-mode behaviour of Microsoft C 5.1's `open`, `read`, `write`, `lseek`, `close`, `filelength`, `chsize`, `access` and `setmode`: the Microsoft C 5.1 run-time library reference.
+- Microsoft C 5.1's `_doserrno` (the run-time library reference, "Global Variables"), and Open Watcom's, for its name and type; when it is set is libc16's own, below.
 - POSIX.1-2008 for details Microsoft's reference leaves open (`O_EXCL`, `lseek` beyond the start, `dup2` of a handle to itself).
 - `isatty`, `dup`, `dup2`: the Microsoft C 5.1 run-time library reference; INT 21h functions 4400h (IOCTL, get device information: bit 7 of `DX` is set for a device), 45h (duplicate handle) and 46h (force duplicate handle, which closes the second handle first if it is open): Ralf Brown's Interrupt List. Under DOSBox-X, 46h with both handles the same fails with error 6 and leaves the handle open, and 46h to handle 25 succeeds, writing past the program's 20-entry handle table (our own experiment).
 
@@ -29,6 +30,16 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 | 11 invalid format | `ENOEXEC` |
 | 17 not the same device | `EXDEV` |
 | 80 file exists | `EEXIST` |
+
+## `_doserrno`
+
+`int _doserrno` (symbol `__doserrno`), declared in `<errno.h>` with `errno`, zero at startup: a Microsoft C extension that holds the DOS error code (`AX` after INT 21h returned with the carry flag set) of the last failed DOS call that a libc16 function reported. `errno` is a mapping of that code, which loses some of it: DOS errors 2 (file not found) and 3 (path not found) are both `ENOENT`, and 5 (access denied) and 32 (sharing violation) both `EACCES`. `_doserrno` keeps the code untranslated.
+
+- Whenever a function fails because a DOS call failed, it sets `_doserrno` to that call's code, as well as `errno`. That includes the functions whose `errno` is not the table's: `isatty`, `dup2` and `fdopen` report a handle DOS rejects as `EBADF` whatever its code, and `rename`, when DOS gives 5 for a new name whose directory is missing, `ENOENT`; `_doserrno` is DOS's code in each case.
+- Nothing else sets or clears it. A successful call leaves it as it was, even one that recovered from a failed DOS call (`open` with `O_CREAT` of a missing file; `stat` of a root directory, which has no directory entry to find).
+- An error the runtime finds itself, with no failed DOS call, sets `errno` only: an argument it rejects (an invalid `fopen` mode, `EINVAL`), a wildcard in a name, a handle of 20 or more (`EMFILE`), a read-only file that `remove` refuses before asking DOS, and a short write, which DOS reports as a success, so that `write`'s `ENOSPC`, and a stream's, comes with no DOS code.
+- The heap does not set it. `malloc` grows the program's memory block with INT 21h 4Ah as one way to find room, and a refusal there is not the failure of the call (`realloc` may still succeed by moving the block), so the heap's `ENOMEM` comes with no DOS code. The spawn functions' environment block (`docs/spec/process.md`) is different: when INT 21h 48h fails, the call fails, with `ENOMEM` and DOS's code (8, insufficient memory) in `_doserrno`.
+So `_doserrno` is meaningful only just after a failure that a DOS call caused, and may otherwise be stale, describing an earlier failure: it is not an explanation of every failure, and a program reads it only when it needs the distinction `errno` loses. `intdos` and `intdosx` do not set it (`docs/spec/dos.md`); a program that sets it itself may.
 
 ## Handles and modes
 
@@ -54,7 +65,7 @@ A handle (file descriptor) is a DOS handle. libc16 keeps a mode for handles 0 to
 - **`int write(int fd, const void *buf, unsigned n)`:** writes `n` bytes, translated in text mode, and returns `n`; or -1. Writing fewer bytes than asked (a full disk) is -1 with `ENOSPC`. `n` of 0 writes nothing and returns 0 (it never truncates).
 - **`long lseek(int fd, long offset, int origin)`:** moves the file pointer to `offset` from the start (`SEEK_SET`), the current position (`SEEK_CUR`) or the end (`SEEK_END`) and returns the new position, or -1L. An invalid `origin`, or a resulting position before the start, is `EINVAL`, and the position is unchanged. A byte kept by a text-mode `read` is discarded, and `SEEK_CUR` counts from just before it.
 - **`long filelength(int fd)`:** the length of the file in bytes, or -1L; the position is unchanged.
-- **`int chsize(int fd, long size)`:** extends the file with zero bytes or truncates it to `size` bytes; the position is unchanged. 0, or -1: `EINVAL` for a negative `size`, `ENOSPC` if the disk fills, `EACCES` if the handle was not opened for writing. If a seek to find the end of the file or the new end fails, the size is unchanged and the seek's error is returned. If only restoring the position fails, the size has changed but the result is still -1 with that error; a restore that fails after an earlier error leaves `errno` as that error set it.
+- **`int chsize(int fd, long size)`:** extends the file with zero bytes or truncates it to `size` bytes; the position is unchanged. 0, or -1: `EINVAL` for a negative `size`, `ENOSPC` if the disk fills, `EACCES` if the handle was not opened for writing. If a seek to find the end of the file or the new end fails, the size is unchanged and the seek's error is returned. If only restoring the position fails, the size has changed but the result is still -1 with that error; a restore that fails after an earlier error leaves `errno`, and `_doserrno`, as that error set them.
 - **`int access(const char *path, int mode)`:** 0 if `path` (a file or directory) exists and allows `mode`: 0 existence, 2 write, 4 read, 6 both. A read-only file fails 2 and 6 with `EACCES`; a missing one fails with `ENOENT`; any other `mode` is `EINVAL`. Returns 0 or -1.
 - **`int setmode(int fd, int mode)`:** sets the handle's mode to `O_TEXT` or `O_BINARY` and returns the previous one; -1 with `EINVAL` for any other `mode`, or `EBADF` for a handle outside 0 to 19.
 
@@ -74,4 +85,4 @@ All are `__cdecl`. 8086 instructions only. A program that uses only binary handl
 
 ## Tests
 
-`tests/io/io` covers the functions above `isatty`. `tests/io/isatty` covers `isatty` on handle 0 (the console under the test runner), 1 (redirected to a file), 2 (the console), `CON` and `NUL` opened by name, a file, a closed handle, -1 and 20. `tests/io/dup` covers `dup` of a binary file handle, an appending handle and a handle with a kept byte (it stays with the old handle), the shared position, closing either handle, a closed handle, and running out of handles; `dup2` onto an open handle (whose file is closed and whose mode and kept byte are replaced), onto a closed one, onto itself, from a closed handle, and to -1 and 20; and redirecting handle 1 to a file and back with `dup` and `dup2`.
+`tests/io/io` covers the functions above `isatty`. `tests/io/isatty` covers `isatty` on handle 0 (the console under the test runner), 1 (redirected to a file), 2 (the console), `CON` and `NUL` opened by name, a file, a closed handle, -1 and 20. `tests/io/dup` covers `dup` of a binary file handle, an appending handle and a handle with a kept byte (it stays with the old handle), the shared position, closing either handle, a closed handle, and running out of handles; `dup2` onto an open handle (whose file is closed and whose mode and kept byte are replaced), onto a closed one, onto itself, from a closed handle, and to -1 and 20; and redirecting handle 1 to a file and back with `dup` and `dup2`. `tests/io/doserrno` covers `_doserrno`: zero at startup; DOS errors 2, 3 and 5, from `open` and `mkdir`, with their `errno`; successful calls after a failure, `open` with `O_CREAT` of a missing file among them; runtime errors (an invalid `fopen` or `open` mode, a wildcard for `remove`, a bad handle for `setmode`); a short write (`ENOSPC`) and a failed one, made by `tests/stdbuf/wrhook`; `_dos_open`, `_dos_read` and `_dos_close` failing and succeeding; DOS's code where `errno` is not the table's (`isatty`, `dup2` and `fdopen` of a closed handle, `rename` into a missing directory), and none for their handles of 20 or more; and `stat` of a root directory, which succeeds, and of a missing file.

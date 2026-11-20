@@ -33,6 +33,7 @@ unsigned __libc16_envblock(char * const *envp)
     /* one byte more, for an empty block's second zero */
     a = dos_alloc((n >> 4) + 1);
     if (DOS_FAILED(a)) {
+        _doserrno = DOS_AX(a);
         errno = ENOMEM;
         return 0;
     }

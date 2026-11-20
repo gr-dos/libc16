@@ -18,7 +18,13 @@ int __cdecl dup2(int fd, int fd2)
 
     /* fd2 must have a mode; fd must be open, checked before DOS can
      * close fd2 (and so that dup2(fd, fd) fails for a closed fd) */
-    if ((unsigned)fd2 >= FD_MAX || DOS_FAILED(__libc16_dos_devinfo(fd))) {
+    if ((unsigned)fd2 >= FD_MAX) {
+        errno = EBADF;
+        return -1;
+    }
+    r = __libc16_dos_devinfo(fd);
+    if (DOS_FAILED(r)) {
+        _doserrno = DOS_AX(r);
         errno = EBADF;
         return -1;
     }

@@ -11,7 +11,7 @@ int __cdecl chsize(int fd, long size)
     char zeros[512];
     long here, end;
     unsigned long r;
-    int rc = 0, err;
+    int rc = 0, err, doserr;
 
     if (size < 0) {
         errno = EINVAL;
@@ -50,11 +50,14 @@ int __cdecl chsize(int fd, long size)
     /* A failure to restore the position is reported, but does not
      * replace an earlier error. */
     err = errno;
+    doserr = _doserrno;
     if (lseek(fd, here, SEEK_SET) == -1L) {
-        if (rc == 0)
+        if (rc == 0) {
             rc = -1;
-        else
+        } else {
             errno = err;
+            _doserrno = doserr;
+        }
     }
     return rc;
 }

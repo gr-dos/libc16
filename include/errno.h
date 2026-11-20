@@ -7,6 +7,9 @@
 
 extern int __cdecl errno;
 
+/* The DOS error code of the last DOS call that failed (Microsoft C) */
+extern int __cdecl _doserrno;
+
 #define ENOENT   2
 #define E2BIG    7
 #define ENOEXEC  8

@@ -116,6 +116,25 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 
 0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
+0.18 adds three things for `plicease/sprocket`'s DOS client (`SPROCKET.EXE`, small model), moving from Open Watcom's runtime to libc16 (plicease/sprocket#27, #28): C89's `memchr` (#39, `docs/spec/string.md`), so that SPROCKET's `next_slash()` and similar local loops can go; Microsoft C's `_doserrno` (#38, `docs/spec/io.md`, "`_doserrno`"), the DOS error code behind `errno`, which tells DOS's 2 (file not found) from 3 (path not found); and `_dos_getftime` and `_dos_setftime` (#37, `docs/spec/dos.md`), INT 21h 5700h and 5701h on a handle with DOS's packed date and time, so that SPROCKET can restore an uploaded file's time from the protocol's raw stamp without `utime`'s `time_t` round trip, and drop its inline 5701h call. Under DOSBox-X the time set reaches the file only when the handle is closed, and a 5700h on the handle after the 5701h cancels it: set the time last, just before closing.
+
+`_doserrno` is set only when a DOS call fails; it is stale after a success or after an error the runtime finds itself (a short write's `ENOSPC` among them). It is a word next to `errno` in the `errno` member, so every program that links `errno` gets 2 more bytes of `DGROUP`, and each member that reports DOS errors a store. `__libc16_dos_devinfo`, the INT 21h 4400h call of `isatty`, `dup2` and `fdopen`, lost DOS's error code on failure, which no caller had needed; it keeps it now, 2 bytes more in each of them.
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `memchr` | 31 | 37 | 37 | |
+| `dosgetft` | 57 | 60 | 62 | `doserr` |
+| `dossetft` | 36 | 36 | 38 | `doserr` |
+| `errno` | data 4 | data 4 | data 4 | was 2 |
+| `doserr` | 47 | 52 | 52 | was 44 / 48 / 48 |
+| `isatty` | 43 | 45 | 45 | was 38 / 39 / 39 |
+| `dup2` | 94 | 98 | 100 | was 87 / 90 / 92 |
+| `fdopen` | 192 | 229 | 231 | was 184 / 195 / 197 |
+| `rename` | 284 | 311 | 313 | was 278 / 304 / 306 |
+| `envblock` | 135 | 180 | 180 | was 132 / 176 / 176 |
+| `stat` | 394 | 461 | 477 | was 379 / 447 / 463 |
+| `chsize` | 339 | 359 | 371 | was 329 / 345 / 357 |
+
 0.17 adds the update modes to `fopen` and `fdopen` (`docs/spec/stdio.md`, "Update streams"): `r+`, `w+` and `a+`, with `b` (and, for `fdopen`, `t`) before or after the `+`, for gr-dos/tcl16's `open` (its `tests/tcl16/openplus`). An update stream reads and writes one file through one handle. An update stream's output is unbuffered, even after `setvbuf` or `setbuf`, which treat it as a read stream (its input buffer is the only buffer it has), so a read may follow a write directly; a write after a read needs `fseek` first, as C89 says, unless the read found the end of the file (`fflush` does nothing on input). `fopen`'s other modes, and every other member, are unchanged.
 
 | Member | Small | Compact | Large | Also links, or data |

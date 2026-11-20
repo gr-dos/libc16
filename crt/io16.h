@@ -111,12 +111,15 @@ unsigned long __libc16_dos_seek(int fd, long offset, unsigned char origin);
     parm [bx] [cx dx] [al] value [dx ax] modify exact [ax cx dx];
 
 /* INT 21h 4400h, get device information: DX in the low word (bit 7 set
- * for a device); the high word is 0xFFFF if fd is not an open handle. */
+ * for a device); the high word is 0xFFFF if fd is not an open handle,
+ * and the low word then the error code. */
 unsigned long __libc16_dos_devinfo(int fd);
 #pragma aux __libc16_dos_devinfo = \
     "mov ax, 4400h" \
     "int 21h" \
+    "jc short fail" \
     "mov ax, dx" \
+    "fail:" \
     "sbb dx, dx" \
     parm [bx] value [dx ax] modify exact [ax dx];
 

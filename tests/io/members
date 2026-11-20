@@ -3,3 +3,4 @@
 io: cstart access chsize close doserr errno fdtab filelen lseek memcmp memset open read setmode write
 isatty: close cstart doserr errno fdtab isatty lseek open write
 dup: close cstart doserr dup dup2 errno fdtab lseek memcmp open read setmode strlen write
+doserrno: close cstart dosclose doserr dosfind dosopen dosread dostime dup2 errno fdopen fdtab findfrst fopen fromloc fullpath getenv i4d i4m isatty localtim memcpy mkdir open remove rename rmdir setmode stat streams stricmp strpbrk strrchr timecal tzdata tzset u4d write
