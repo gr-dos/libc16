@@ -161,6 +161,9 @@ $(OWNENT): $(TEST)/startup/ownstart.obj $(TEST)/startup/ownent.obj $(TEST)/suppo
 # io also links a hook that makes chosen seeks fail.
 $(TEST)/io/io.EXE: $(TEST)/io/seekfail.obj
 
+# doserrno links the hook on DOS writes, to make them short or fail.
+$(TEST)/io/doserrno.EXE: $(TEST)/stdbuf/wrhook.obj
+
 # stdio's seek test also links it, to make fseek's and ftell's seeks fail.
 $(TEST)/stdio/seek.EXE: $(TEST)/io/seekfail.obj
 

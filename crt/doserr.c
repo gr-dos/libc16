@@ -1,4 +1,4 @@
-/* DOS error codes to errno - libc16 (docs/spec/io.md) */
+/* DOS error codes to _doserrno and errno - libc16 (docs/spec/io.md) */
 
 #include <errno.h>
 #include "io16.h"
@@ -12,6 +12,7 @@ static const unsigned char map[] = {
 
 int __libc16_doserr(unsigned code)
 {
+    _doserrno = (int)code;
     if (code < sizeof map)
         errno = map[code];
     else if (code == 80)

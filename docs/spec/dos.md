@@ -19,7 +19,7 @@ Find the first file matching `path` (which may contain wildcards) with attribute
 
 ## `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`
 
-Microsoft C's direct DOS file calls, each one INT 21h function. Each returns 0, or the DOS error code with `errno` set as in `docs/spec/io.md`; output parameters are stored only on success. They use no handle table: the handles are DOS's, untranslated (binary).
+Microsoft C's direct DOS file calls, each one INT 21h function. Each returns 0, or the DOS error code with `errno` set as in `docs/spec/io.md` and `_doserrno` set to the code; output parameters are stored only on success. They use no handle table: the handles are DOS's, untranslated (binary).
 
 - **`unsigned _dos_open(const char *path, unsigned mode, int *handle)`:** function 3Dh with `AL` = the low byte of `mode` (`O_RDONLY`, `O_WRONLY` or `O_RDWR`, with DOS's sharing and inheritance bits if wanted); stores the handle.
 - **`unsigned _dos_creat(const char *path, unsigned attr, int *handle)`:** function 3Ch: creates or truncates the file with attributes `attr` (`_A_NORMAL`, `_A_RDONLY`, `_A_HIDDEN`, `_A_SYSTEM`, `_A_ARCH`); stores the handle.
@@ -56,7 +56,7 @@ As `int86`, except that `DS` and `ES` are loaded from `segs->ds` and `segs->es` 
 
 ## `int intdos(union REGS *in, union REGS *out)`, `int intdosx(union REGS *in, union REGS *out, struct SREGS *segs)`
 
-`int86(0x21, in, out)` and `int86x(0x21, in, out, segs)`. Unlike Microsoft's, they do not set `_doserrno`, which libc16 does not have; the caller reads `out->x.cflag` and `out->x.ax`.
+`int86(0x21, in, out)` and `int86x(0x21, in, out, segs)`. Unlike Microsoft's, they do not set `_doserrno` (`docs/spec/io.md`); the caller reads `out->x.cflag` and `out->x.ax`.
 
 ## `void segread(struct SREGS *segs)`
 

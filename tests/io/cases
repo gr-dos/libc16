@@ -3,3 +3,4 @@
 io 0 io
 isatty 0 isatty
 dup    0 dup
+doserrno 0 doserrno
