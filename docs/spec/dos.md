@@ -2,14 +2,14 @@
 
 **Headers:** `<dos.h>`, `<conio.h>`, `<stdlib.h>`  
 **Members:** one per function  
-**Tests:** `tests/dos`
+**Tests:** `tests/dos` (the file times in `tests/dos/ftime`)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
 
 ## Sources
 
-- INT 21h functions 02h (character output), 06h (direct console I/O), 08h (character input without echo), 0Bh (check input status), 19h (get drive), 1Ah (set disk transfer area), 2Fh (get disk transfer area), 47h (get current directory), 4Eh (find first) and 4Fh (find next), all DOS 2.0; the environment segment at PSP offset 2Ch: Ralf Brown's Interrupt List; MS-DOS 2.0 `SYSCALL.DOC`.
-- The interfaces of Microsoft C 5.1's `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`, `_dos_getvect`, `_dos_setvect`, `_dos_findfirst`, `_dos_findnext`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`, the `FP_SEG` and `FP_OFF` macros, and the layouts of `struct find_t`, `union REGS` and `struct SREGS`: the Microsoft C 5.1 run-time library reference. GR-DOS's ATTRIB, MEM and FDISK, from the MS-DOS 4.00 source, are the call sites (`docs/CONSUMERS.md`).
+- INT 21h functions 02h (character output), 06h (direct console I/O), 08h (character input without echo), 0Bh (check input status), 19h (get drive), 1Ah (set disk transfer area), 2Fh (get disk transfer area), 47h (get current directory), 4Eh (find first), 4Fh (find next), 5700h (get file date and time) and 5701h (set file date and time), all DOS 2.0; the environment segment at PSP offset 2Ch: Ralf Brown's Interrupt List; MS-DOS 2.0 `SYSCALL.DOC`.
+- The interfaces of Microsoft C 5.1's `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`, `_dos_getftime`, `_dos_setftime`, `_dos_getvect`, `_dos_setvect`, `_dos_findfirst`, `_dos_findnext`, `int86`, `int86x`, `intdos`, `intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`, the `FP_SEG` and `FP_OFF` macros, and the layouts of `struct find_t`, `union REGS` and `struct SREGS`: the Microsoft C 5.1 run-time library reference. GR-DOS's ATTRIB, MEM and FDISK, from the MS-DOS 4.00 source, are the call sites (`docs/CONSUMERS.md`).
 - C89 7.10.4.4 (`getenv`).
 - Open Watcom C library documentation for `_harderr` with a handler that returns its action, and for `MK_FP`; Ralf Brown's Interrupt List for INT 24h (registers on entry, the stack it runs on, the functions a handler may call, the return codes in `AL`).
 
@@ -17,7 +17,7 @@ This is the behavioural spec an implementation is written from (decision 6). It 
 
 Find the first file matching `path` (which may contain wildcards) with attributes `attr` (`_A_*`, as INT 21h 4Eh interprets them), or the next one of the same search. `struct find_t` is DOS's search record: 21 reserved bytes, `attrib`, `wr_time`, `wr_date`, `size`, and `name` (the 8.3 name, null-terminated), 43 bytes with no padding. Return 0, or the DOS error code with `errno` set as in `docs/spec/io.md` (`ENOENT` when nothing matches). The disk transfer area is restored to its previous address before returning.
 
-## `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`
+## `_dos_open`, `_dos_creat`, `_dos_close`, `_dos_read`, `_dos_write`, `_dos_getfileattr`, `_dos_setfileattr`, `_dos_getftime`, `_dos_setftime`
 
 Microsoft C's direct DOS file calls, each one INT 21h function. Each returns 0, or the DOS error code with `errno` set as in `docs/spec/io.md` and `_doserrno` set to the code; output parameters are stored only on success. They use no handle table: the handles are DOS's, untranslated (binary).
 
@@ -28,6 +28,12 @@ Microsoft C's direct DOS file calls, each one INT 21h function. Each returns 0, 
 - **`unsigned _dos_write(int handle, const void __far *buf, unsigned count, unsigned *nwritten)`:** function 40h from `buf`, far in every model; stores the number of bytes written, which may be less than `count` when the disk is full. A `count` of 0 truncates the file at its pointer, as DOS does.
 - **`unsigned _dos_getfileattr(const char *path, unsigned *attr)`:** function 4300h; stores the attributes.
 - **`unsigned _dos_setfileattr(const char *path, unsigned attr)`:** function 4301h.
+- **`unsigned _dos_getftime(int handle, unsigned *date, unsigned *time)`:** function 5700h; stores the date and time of the file's last modification.
+- **`unsigned _dos_setftime(int handle, unsigned date, unsigned time)`:** function 5701h; sets them.
+
+The date and time of `_dos_getftime` and `_dos_setftime` are DOS's packed directory-entry format, untranslated: the date is (year - 1980) << 9 | month << 5 | day, the time hour << 11 | minute << 5 | second / 2, the `wr_date` and `wr_time` of `struct find_t`. There is no conversion to or from `time_t`, so no time zone (`docs/spec/time.md`) and no range check: `_dos_setftime` stores what it is given. 5701h needs no write access, so a read-only handle, of a read-only file too, can set the time. DOS stamps a file written through a handle with the current time when the handle is closed; a 5701h call on the handle stops that, so a time set with `_dos_setftime` after the writes survives the close.
+
+Under DOSBox-X (our own experiment), the time set reaches the file when the handle is closed: until then 5700h on that handle still gives the time from before, and a 5700h after the 5701h cancels it, so the file keeps its old time (or, if written, gets the current one). A directory search in the same DOSBox-X session may also go on reporting a file's time from before 5701h, though a new handle reports the new one. DOS keeps the time in the handle's system file table entry, where 5700h finds it. A program that sets a file's time should do it last, just before closing the handle.
 
 ## `_dos_getvect`, `_dos_setvect`
 
