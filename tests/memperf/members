@@ -1,0 +1,3 @@
+# The program links only the members it times.
+
+perf: cstart fmemcpy memcpy memmove memset

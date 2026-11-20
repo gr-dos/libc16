@@ -4,3 +4,4 @@ string: cstart fmemcpy memcmp memcpy memmove memset strcat strchr strcmp strcpy 
 search: cstart strcmp strcspn strstr
 upper: cstart strcmp strlwr strupr
 memchr: cstart memchr
+copy: cstart fmemcpy memcpy memmove memset

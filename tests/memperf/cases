@@ -1,0 +1,5 @@
+# The time of the word copies and fills (docs/spec/string.md, "Copies and
+# fills"; tests/run-dos): NAME STATUS PROGRAM [ARGUMENTS]. Its own suite,
+# so that it has its own time limit.
+
+perf 0 perf
