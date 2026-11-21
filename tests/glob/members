@@ -1,0 +1,3 @@
+# Each test program links only the members it calls.
+glob: chdir cstart dosclose doscreat doserr dosfind doswrite errno findfrst findnext free glob globfree malloc memcmp memcpy mkdir qsort realloc strcmp stricmp strlen
+gcat: args argv close cstart doserr dosfind errno fdtab findfrst findnext free glob globfree malloc memcpy open qsort read realloc setmode strcmp strerror stricmp strlen write

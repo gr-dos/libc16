@@ -116,6 +116,17 @@ The spawn functions use about 260 bytes of stack, and the `p` forms 128 more; `s
 
 0.12 moves that code reserve to the startup (#27, `docs/spec/startup.md`, "Null function pointer"): in the small and compact models `cstart` puts 2 bytes, `LIBC16_CODE0`, before all code, so that no function is at offset 0 or 1 and no function pointer compares equal to a null pointer, `SIG_DFL` or `SIG_IGN`, whether or not the program links `signal`. `cstart`'s code is unchanged; the reserve adds 2 bytes to every small and compact program, which usually fit in the padding before the paragraph-aligned `DGROUP` (`tests/startup/status` stays 162 bytes) and otherwise cost one paragraph. The large model is unchanged. A program with its own entry point gets no reserve.
 
+0.20 adds `libc16_glob` and `libc16_globfree` (#41, `docs/spec/glob.md`), opt-in expansion of a DOS wildcard file operand, for `gr-dos/cat16` (`cat *.txt > foo.out`) and later `gr-dos/ls16`: `COMMAND.COM` passes `*.TXT` through, and the startup still does not touch `argv`. A program calls `libc16_glob` for each file operand with `LIBC16_GLOB_APPEND`, which keeps the command line's order and sorts each wildcard's own matches case-insensitively; a pattern with no wildcard comes back as it is, so `open` reports a missing literal file as before, and one that matches nothing is `LIBC16_GLOB_NOMATCH` (or itself, with `LIBC16_GLOB_NOCHECK`). Matching is DOS's 8.3 matching, so `*` alone matches only names without an extension and `*.*` matches everything. Ordinary files only, unless `LIBC16_GLOB_DIRS` or `LIBC16_GLOB_HIDDEN`; never a volume label, `.` or `..`. `tests/glob/gcat.c` is an example consumer. A program that calls neither links neither.
+
+| Member | Small | Compact | Large | Also links, or data |
+|---|---|---|---|---|
+| `glob` | 697 | 920 | 945 | `findfrst`, `findnext`, `malloc`, `realloc`, `free`, `qsort`, `stricmp`, `strcmp`, `strlen`, `memcpy`, `errno` |
+| `globfree` | 55 | 81 | 85 | `free` |
+
+With everything it links, `glob` and `globfree` come to 2,144 bytes of code in the small model, 2,932 compact and 2,998 large, less what the program already links (the heap is most of it: 846 / 1,311 / 1,341). Heap use is one block per path (its length, a null and a 2-byte header) and an array of pointers that grows by doubling: 300 matches of `D:\BIG\N000.DAT` hold 7,128 bytes in the small model and 8,140 with far data.
+
+`tests/run-dos` can now mount a FAT floppy image as a second drive (`mount D LABEL` in a cases file), since a mounted host directory has no Hidden or System attributes and no volume label.
+
 0.19 makes `memcpy`, `memmove`, `memset` and `_fmemcpy` copy and fill a word at a time with `rep movsw` / `rep stosw` and a final `movsb` / `stosb` for an odd count (#42, `docs/spec/string.md`, "Copies and fills"), in place of 0.18's byte loops in C. It is for `plicease/sprocket`'s DOS client, whose 1 KB copies per request made its end of frame about 8.6% slower on a NEC V20 than with Open Watcom's runtime, which inlines `memcpy` as `rep movs`. Results are unchanged. Each member is now in assembly and changes `ES`; with far data it also leaves `DS` at the source's segment, as the ABI allows. A downward `memmove` runs with the direction flag set and clears it before returning. Under DOSBox-X `tests/memperf` takes 1 tick for each member where a byte loop takes 14 to 24.
 
 | Member | Small | Compact | Large | Also links, or data |

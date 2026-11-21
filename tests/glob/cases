@@ -1,0 +1,10 @@
+# Wildcard expansion (docs/spec/glob.md): drive D: is a FAT floppy image
+# with a volume label, which keeps DOS attributes (tests/run-dos). glob
+# makes the fixtures that the example consumer, gcat, then reads.
+
+mount D GLOBVOL
+glob     0 glob
+gcat     0 gcat CT\*.TXT CT\M.TXT
+gcatnone 1 gcat CT\*.XYZ CT\N.TXT
+gcatmiss 1 gcat CT\NOSUCH.TXT CT\M.TXT
+gcatbad  1 gcat C?\M.TXT CT\N*.*
