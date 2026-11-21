@@ -154,14 +154,23 @@ int main(void)
     wrhook_watch(fileno(fp));
     CHECK(fclose(fp) == 0 && wrhook_count() == 0 && is("WF8.TXT", "abcd\r"));
 
-    /* A large binary request that DOS writes only in part */
+    /* A large binary request that DOS writes only in part: the buffer
+     * is completed with 14 of its bytes and written, then 80 are written
+     * straight from the request, of which DOS takes 60; the last 6 are
+     * dropped */
     fp = open_buffered("WF9.BIN", "wb", _IOFBF, 16);
     CHECK(fputs("ab", fp) == 0);
     wrhook_limit(1, 60);
     errno = 0;
-    CHECK(fwrite(big, 1, 100, fp) == 60 && ferror(fp) && errno == ENOSPC);
-    CHECK(wrhook_count() == 2 && len(fp) == 62 && ftell(fp) == 62);
-    CHECK(fclose(fp) == 0 && slurp("WF9.BIN") == 62 && memcmp(got + 2, big, 60) == 0);
+    CHECK(fwrite(big, 1, 100, fp) == 74 && ferror(fp) && errno == ENOSPC);
+    CHECK(wrhook_count() == 2 && len(fp) == 76 && ftell(fp) == 76);
+    CHECK(fclose(fp) == 0 && slurp("WF9.BIN") == 76 && memcmp(got + 2, big, 74) == 0);
+    /* elements: 74 bytes are 7 whole elements of 10 */
+    fp = open_buffered("WF9.BIN", "wb", _IOFBF, 16);
+    CHECK(fputs("ab", fp) == 0);
+    wrhook_limit(1, 60);
+    CHECK(fwrite(big, 10, 10, fp) == 7 && ferror(fp));
+    CHECK(fclose(fp) == 0 && slurp("WF9.BIN") == 76);
     /* and one whose pending output DOS does not take: nothing of it is
      * written */
     fp = open_buffered("WF9.BIN", "wb", _IOFBF, 16);

@@ -12,12 +12,73 @@ void __cdecl wrhook_install(void);
 void __cdecl wrhook_remove(void);
 void __cdecl wrhook_watch(int fd);
 unsigned __cdecl wrhook_count(void);
+unsigned __cdecl wrhook_size(unsigned i);
 
 #define LINES 2000
 #define NONE  (-1)      /* unbuffered: no setvbuf */
 
 static char big[20000];
 static char a[512], b[512];
+static char sbuf[BUFSIZ];
+
+/* The sizes of the writes since wrhook_watch are those of want[], n of
+ * them (at most 128, all the hook records). */
+static int sizes(const unsigned *want, unsigned n)
+{
+    unsigned i;
+
+    if (wrhook_count() != n)
+        return 0;
+    for (i = 0; i < n; i++)
+        if (wrhook_size(i) != want[i])
+            return 0;
+    return 1;
+}
+
+/* Every write since wrhook_watch but the last is a multiple of align
+ * bytes, so each starts at a multiple of align in a file written from
+ * its start, and together they are total bytes. */
+static int aligned(unsigned align, long total)
+{
+    unsigned i, n = wrhook_count();
+    long sum = 0;
+
+    if (n == 0 || n > 128)
+        return 0;
+    for (i = 0; i < n; i++) {
+        if (i < n - 1 && wrhook_size(i) % align != 0)
+            return 0;
+        sum += wrhook_size(i);
+    }
+    return sum == total;
+}
+
+/* pieces calls of 1016 bytes, a 1 KiB frame's payload, to a binary file
+ * from its start with the buffer set by setbuf (sbuf) or setvbuf (a size
+ * of size, from malloc); the file holds them all. */
+static void frames(const char *name, unsigned size, unsigned pieces)
+{
+    FILE *fp = fopen(name, "wb");
+    unsigned i;
+    int fd;
+
+    CHECK(fp != NULL);
+    if (size == 0)
+        setbuf(fp, sbuf);
+    else
+        CHECK(setvbuf(fp, NULL, _IOFBF, size) == 0);
+    wrhook_watch(fileno(fp));
+    for (i = 0; i < pieces; i++)
+        CHECK(fwrite(big + i, 1, 1016, fp) == 1016);
+    CHECK(fclose(fp) == 0);
+    CHECK(aligned(size == 0 ? BUFSIZ : size, 1016L * pieces));
+    fd = open(name, O_RDONLY | O_BINARY);
+    CHECK(fd >= 0 && filelength(fd) == 1016L * pieces);
+    for (i = 0; i < pieces; i++)
+        CHECK(read(fd, a, 508) == 508 && read(fd, b, 508) == 508
+              && memcmp(a, big + i, 508) == 0 && memcmp(b, big + i + 508, 508) == 0);
+    close(fd);
+}
 
 /* Four items a line, as an interpreter's print of a list writes them. */
 static void lines(FILE *fp, int how)
@@ -127,20 +188,58 @@ int main(void)
     n = run("BIN.TXT", "wb", _IOFBF, 1, 0);
     CHECK(n == (LINES * 27L + BUFSIZ - 1) / BUFSIZ);
 
-    /* A binary request as large as the buffer is not copied: what is
-     * pending, then the request, one write each. */
+    /* Binary output keeps the writes whole buffers: pending output is
+     * completed from the request and written, then the largest multiple
+     * of the buffer's size of what is left, straight from the request in
+     * one write, and the rest is kept. */
     for (i = 0; i < sizeof big; i++)
         big[i] = (char)i;
     fp = fopen("SEQ.BIN", "wb");
     CHECK(fp != NULL && setvbuf(fp, NULL, _IOFBF, 0) == 0);
     wrhook_watch(fileno(fp));
-    CHECK(fwrite(big, 1, sizeof big, fp) == sizeof big && wrhook_count() == 1);
-    CHECK(fwrite(big, 1, 3, fp) == 3 && wrhook_count() == 1);
-    CHECK(fwrite(big, 1, BUFSIZ, fp) == BUFSIZ && wrhook_count() == 3);
-    for (i = 0; i < 10; i++)
-        CHECK(fwrite(big, 1000, 1, fp) == 1);
-    CHECK(wrhook_count() == 13);
-    CHECK(fclose(fp) == 0 && filelength(open("SEQ.BIN", O_RDONLY)) == 20000L + 3 + BUFSIZ + 10000);
+    {
+        /* 20,000 is 39 buffers and 32 bytes; 3 more; then 512 completes
+         * the buffer and leaves 35; each 1,000 then makes two writes of
+         * 512 or one, and fclose writes the last 307. */
+        static const unsigned want[] = {
+            19968, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512,
+            512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 307
+        };
+
+        CHECK(fwrite(big, 1, sizeof big, fp) == sizeof big && sizes(want, 1));
+        CHECK(fwrite(big, 1, 3, fp) == 3 && sizes(want, 1));
+        CHECK(fwrite(big, 1, BUFSIZ, fp) == BUFSIZ && sizes(want, 2));
+        for (i = 0; i < 10; i++)
+            CHECK(fwrite(big, 1000, 1, fp) == 1);
+        CHECK(sizes(want, 21));
+        CHECK(fclose(fp) == 0 && sizes(want, 22));
+    }
+    CHECK(filelength(open("SEQ.BIN", O_RDONLY)) == 20000L + 3 + BUFSIZ + 10000);
+    /* A buffer whose size is not a power of 2: 3,000 is three buffers of
+     * 1,000, in one write */
+    fp = fopen("SEQ3.BIN", "wb");
+    CHECK(fp != NULL && setvbuf(fp, NULL, _IOFBF, 1000) == 0);
+    wrhook_watch(fileno(fp));
+    CHECK(fwrite(big, 1, 10, fp) == 10 && wrhook_count() == 0);
+    CHECK(fwrite(big, 1, 3000, fp) == 3000 && wrhook_count() == 2);
+    CHECK(wrhook_size(0) == 1000 && wrhook_size(1) == 2000);
+    CHECK(fclose(fp) == 0 && wrhook_count() == 3 && wrhook_size(2) == 10);
+    /* gr-dos/libc16#45: 1,016-byte pieces through setbuf's 512 bytes,
+     * and through 4,096, reach DOS as whole buffers, but for the last */
+    frames("FR512.BIN", 0, 30);
+    CHECK(wrhook_count() == 60);
+    frames("FR4K.BIN", 4096, 30);
+    CHECK(wrhook_count() == 8);
+    /* A line-buffered binary stream does the same, and writes what is
+     * left at a \n */
+    fp = fopen("SEQL.BIN", "wb");
+    CHECK(fp != NULL && setvbuf(fp, NULL, _IOLBF, 16) == 0);
+    wrhook_watch(fileno(fp));
+    CHECK(fwrite("0123456789abcdefghij", 1, 20, fp) == 20 && wrhook_count() == 1
+          && wrhook_size(0) == 16);
+    CHECK(fwrite("0123456789abcdefghi\n", 1, 20, fp) == 20 && wrhook_count() == 3
+          && wrhook_size(1) == 16 && wrhook_size(2) == 8);
+    CHECK(fclose(fp) == 0 && wrhook_count() == 3);
 
     /* Text mode is translated through the buffer. */
     for (i = 0; i < 2000; i++)

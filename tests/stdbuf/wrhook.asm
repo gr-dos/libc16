@@ -10,6 +10,9 @@
 ;       through as they are (fd -1: none)
 ;   unsigned __cdecl wrhook_count(void);
 ;       the writes to fd since wrhook_watch, whatever became of them
+;   unsigned __cdecl wrhook_size(unsigned i);
+;       the byte count asked for by write i (from 0) since wrhook_watch,
+;       for the first NSIZES of them; 0 for a later one
 ;   void __cdecl wrhook_limit(unsigned skip, unsigned max);
 ;       let skip writes to fd through, then make every one write at most
 ;       max bytes (0: none, returning AX = 0 without calling DOS)
@@ -25,7 +28,10 @@
 _TEXT   segment word public 'CODE'
         assume  cs:_TEXT
 
+NSIZES  equ     128
+
 old21   dd      0
+sizes   dw      NSIZES dup (0)  ; CX of each write, while there is room
 watch   dw      0FFFFh          ; the handle
 count   dw      0
 mode    db      0               ; 0 through, 1 limit, 2 fail
@@ -37,6 +43,14 @@ handler:
         jne     chain
         cmp     bx, cs:watch
         jne     chain
+        push    si
+        mov     si, cs:count
+        cmp     si, NSIZES
+        jae     counted
+        shl     si, 1
+        mov     cs:sizes[si], cx
+counted:
+        pop     si
         inc     cs:count
         cmp     cs:mode, 0
         je      chain
@@ -121,6 +135,21 @@ _wrhook_count proc CDIST
         mov     ax, cs:count
         ret
 _wrhook_count endp
+
+        public  _wrhook_size
+_wrhook_size proc CDIST
+        push    bp
+        mov     bp, sp
+        mov     bx, [bp + ARG0]
+        xor     ax, ax
+        cmp     bx, NSIZES
+        jae     nosize
+        shl     bx, 1
+        mov     ax, cs:sizes[bx]
+nosize:
+        pop     bp
+        ret
+_wrhook_size endp
 
 ; mode in AL, then skip and arg from the arguments
 setmode proc    near
