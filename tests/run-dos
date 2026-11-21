@@ -29,7 +29,11 @@ NAME.expect exists next to CASES, its output matches it. In an expect file
 a line C</REGEX/> matches a line of output by regular expression; any
 other line must equal its line of output. Blank lines and lines starting
 with # are ignored. A line C<set NAME=VALUE> sets an environment variable
-for the cases after it (C<set NAME=> removes it). NAME is a DOS file name without extension, at most 8
+for the cases after it (C<set NAME=> removes it). A line C<mount D LABEL>
+mounts a new, empty 1.44 MB FAT floppy image, DIR/DRIVED.IMG, as drive
+D: (any letter from D to Y) with the volume label LABEL, for the whole
+session: unlike a mounted host directory, it keeps DOS attributes
+(Hidden, System) and has a real volume label entry. NAME is a DOS file name without extension, at most 8
 characters. Cases run in order, in one DOSBox-X session. The files in the
 directory F<data> next to CASES, if there is one, are copied into DIR
 first, for cases that read them.
@@ -42,11 +46,15 @@ my ($dir, $cases) = @ARGV;
 die "usage: $0 DIR CASES\n" unless defined $cases;
 my $expect_dir = dirname($cases);
 
-my @cases;
+my (@cases, @mounts);
 open my $in, '<', $cases;
 while (my $line = <$in>) {
   chomp $line;
   next if $line =~ /^\s*(?:#|$)/;
+  if ($line =~ /^mount ([D-Y]) (\w{1,11})$/i) {
+    push @mounts, { drive => uc $1, label => uc $2 };
+    next;
+  }
   if ($line =~ /^set ([A-Za-z_]\w*=.*)$/) {
     push @cases, { set => $1 };
     next;
@@ -85,6 +93,13 @@ unlink grep { -e } "$dir/RESULT.TXT", map { "$dir/$_->{name}.OUT" } grep { defin
 write_file("$dir/RUN.BAT", join '', map { "$_\r\n" } @batch);
 
 my $abs = File::Spec->rel2abs($dir);
+my $mount = '';
+for my $m (@mounts) {
+  my $img = "$abs/DRIVE$m->{drive}.IMG";
+  unlink $img if -e $img;
+  $mount .= qq{imgmake "$img" -t fd_1440 -label $m->{label}\n}
+    . qq{imgmount $m->{drive} "$img" -t floppy\n};
+}
 write_file("$dir/DOSBOX.CNF", <<~"END");
   [sdl]
   output=surface
@@ -95,7 +110,7 @@ write_file("$dir/DOSBOX.CNF", <<~"END");
   cputype=8086
   [autoexec]
   mount c "$abs"
-  c:
+  ${mount}c:
   call RUN.BAT
   exit
   END
