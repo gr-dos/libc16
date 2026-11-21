@@ -8,7 +8,8 @@ MIT licensed.
 
 It provides what the `gr-dos/*16` utilities and GR-DOS's ATTRIB, MEM and
 FDISK need (`docs/CONSUMERS.md`): the `.EXE` startup, `argc`/`argv`, `exit`
-and `atexit`; string and memory functions, `memchr` included;
+and `atexit`; string and memory functions, `memchr` included, with `memcpy`,
+`memmove`, `memset` and `_fmemcpy` a word at a time;
 `open`/`read`/`write`/`lseek` and friends with text mode, `isatty`, `dup`
 and `dup2`, and `_doserrno` beside `errno`; `rename`, `unlink`, `remove`, `stat`, `fstat`, `getcwd`,
 `chdir`, `mkdir` and `rmdir`; stdio streams with `fopen` and

@@ -4,3 +4,4 @@ string 0 string
 search 0 search
 upper  0 upper
 memchr 0 memchr
+copy   0 copy

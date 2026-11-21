@@ -2,7 +2,7 @@
 
 **Header:** `<string.h>`  
 **Members:** one per function  
-**Tests:** `tests/string` (`strupr` in `tests/string/upper`, `memchr` in `tests/string/memchr`)
+**Tests:** `tests/string` (`strupr` in `tests/string/upper`, `memchr` in `tests/string/memchr`, the copies and fills in `tests/string/copy`), `tests/memperf` (their time)
 
 This is the behavioural spec an implementation is written from (decision 6). It does not describe any existing implementation.
 
@@ -24,6 +24,15 @@ Full C89 semantics. In particular: comparisons (`memcmp`, `strcmp`, `strncmp`) c
 - **`char *strupr(char *s)`:** converts `a`–`z` in `s` to `A`–`Z` in place and returns `s`; no other characters are changed, bytes from 80h up included.
 - **`int strnicmp(const char *s1, const char *s2, size_t n)`:** as `strncmp`, comparing as `stricmp` does.
 - **`void __far *_fmemcpy(void __far *dst, const void __far *src, size_t n)`:** `memcpy` with far pointers, in every model; the objects need not be in `DGROUP`.
+
+## Copies and fills
+
+`memcpy`, `memmove`, `memset` and `_fmemcpy` move a word at a time with the 8086 string instructions: `rep movsw` (or `rep stosw`) for `n / 2` words, then one `movsb` (`stosb`) when `n` is odd (#42). Each is in assembly. Their results are the same as a byte loop's, `n` of 0 included, which moves nothing; `tests/string/copy` covers every `n` up to 40 at every alignment of source and destination, `memmove`'s overlaps in both directions at every distance up to 7, and `n` above 32767 (*tested*).
+
+- **Registers.** `DS:SI` is the source and `ES:DI` the destination. `ES` is changed. In the small model `ES` is set to `DS` and `DS` is kept, `_fmemcpy` restoring it after loading the source's segment; with far data `DS` is left with the source's segment, which the ABI allows (`docs/ABI.md`, "Registers"). `SI`, `DI` and `BP` are kept. `DS` in the small model is *tested*.
+- **Direction flag.** `memmove` copies upwards when `dst`'s offset is at most `src`'s, and otherwise downwards with the direction flag set (`std`): the odd last byte first, then the words from the last down. It clears the flag (`cld`) before returning. The others clear it before copying. The flag is clear on return from every one (*tested*). An interrupt handler that runs during a downward `memmove` finds the flag set, as with any code that uses `std`, and must clear it itself if it uses string instructions.
+- **Alignment.** The destination is not aligned first. On an 8086 a word move to or from an odd address takes an extra bus cycle, but is still faster than two byte moves; on an 8088 or V20, whose bus is 8 bits wide, alignment makes no difference.
+- **Time.** `tests/memperf` times 20,000 bytes moved or filled 20 times by each member and by a byte loop compiled from C, the way 0.18's members copied; each member must take at most half the loop's time (*tested*, under DOSBox-X).
 
 ## `char *strerror(int errnum)`
 

@@ -1,0 +1,7 @@
+# Ticks vary by model; only the shape and "ok" are checked.
+/^memcpy: \d+ ticks, byte loop \d+ ticks$/
+/^memmove up: \d+ ticks, byte loop \d+ ticks$/
+/^memmove down: \d+ ticks, byte loop \d+ ticks$/
+/^memset: \d+ ticks, byte loop \d+ ticks$/
+/^_fmemcpy: \d+ ticks, byte loop \d+ ticks$/
+ok
