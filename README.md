@@ -23,7 +23,8 @@ from Ctrl-C; `time`,
 `malloc`/`free`; `_dos_findfirst`/`_dos_findnext`, `_dos_getftime`/`_dos_setftime`, `int86`/`int86x`,
 `intdos`/`intdosx`, `segread`, `bdos`, `kbhit`, `getch`, `putch`, `getenv` and `_fullpath`; the compiler's 32- and 64-bit helpers; and
 `libc16_ultoa`/`libc16_ltoa` in place of `printf`, which libc16 does not
-have. `docs/spec/` describes each function; `docs/ABI.md` is the
+have; and `libc16_glob`/`libc16_globfree`, opt-in wildcard expansion of
+file operands. `docs/spec/` describes each function; `docs/ABI.md` is the
 contract with the programs that link it.
 
 ## Using a release
