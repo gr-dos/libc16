@@ -64,6 +64,7 @@ libc16's own source is MIT (`LICENSE`). Licensing is a release gate (DESIGN.md Â
 | `memchr`, `dosgetft`, `dossetft`; `_doserrno` in `errno`, and its setting in `doserr`, `isatty`, `dup2`, `fdopen`, `rename`, `envblock`, `stat` and `chsize` | `crt/*.c`, `crt/io16.h` | `docs/spec/string.md`, `docs/spec/io.md`, `docs/spec/dos.md` | Claude (Opus 5.5), one session for spec, tests and code; human review pending | Written from the spec; see "`memchr`, `_doserrno` and the file times" |
 | `memcpy`, `memmove`, `memset`, `fmemcpy`, rewritten in assembly | `crt/memcpy.asm`, `crt/memmove.asm`, `crt/memset.asm`, `crt/fmemcpy.asm` | `docs/spec/string.md` | Claude (Opus 5.5), one session for spec, tests and code; human review pending | Written from the spec; see "Word-at-a-time copies and fills" |
 | `glob`, `globfree` | `crt/glob.c`, `crt/globfree.c` | `docs/spec/glob.md` | Claude (Opus 5.5), one session for spec, tests and code; human review pending | Written from the spec; see "Wildcard expansion" |
+| `bufio`, changed: aligned binary writes | `crt/bufio.c` | `docs/spec/stdio.md` | Claude (Opus 5.5), one session for spec, tests and code; human review pending | Written from the spec; see "Aligned buffered writes" |
 
 ### Strings, I/O, streams, the DOS interface, character classes, time and files
 
@@ -111,6 +112,10 @@ The compact and large libraries (decision 11) are built from the same sources as
 ### `fopen`'s and `fdopen`'s update modes
 
 The update modes (0.17) are for `gr-dos/tcl16`, whose `open` passes `r+`, `w+` and `a+` to `fopen`. One session wrote the "Update streams" section of `docs/spec/stdio.md` and `tests/stdio/update.c` first, then changed `crt/fopen.c` and `crt/fdopen.c` from that spec: each now reads `+` and `b` (or `t`) in either order and opens for reading and writing. Rebased onto buffered output (0.16), `crt/setvbuf.c` allocates no buffer for an update stream, which `__libc16_bufset` already treats as a read stream. Stream code is not among the modules decision 6 gives to a separate implementation session. Its sources were C89 7.9.5.3 (update streams) and libc16's own stdio and I/O spec, members and tests. It read no Open Watcom runtime source or other C library's source, and disassembled no library but libc16's own objects, for their sizes.
+
+### Aligned buffered writes
+
+The buffering engine's binary write rule (0.21, #45) was changed for `plicease/sprocket`'s DOS client, so that a buffered binary stream's DOS writes stay whole buffers when the program's calls are larger than the buffer. It is ordinary library code, so decision 6 lets one session write the spec, the tests and the code, and one did, the spec and tests in one commit and the code in the next. Its sources: the issue, which states the rule and the measurements behind it; C89 7.9.3; and libc16's own spec, members and tests. It read no Open Watcom runtime source or other C library's source, and disassembled no library but libc16's own objects, for their sizes.
 
 ### Wildcard expansion
 
@@ -229,6 +234,8 @@ Results for 0.06: the new members score at most 0.07 (`strtol`, compact and larg
 Results for 0.09: `setjmp` (34 to 36 runs) and `longjmp` (31 to 34) score 0.00 in every library. 107 of the 149 members of `LIBC16.LIB` are judged, and 112 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still `fromloc`'s 0.17.
 
 Results for 0.11: `signal` (26 to 49 runs), `raise` (22 to 36) and `sigint` (30 to 38) score 0.00 in every library; `abort`, now in assembly, and `sigtab`, which has no code but its 2-byte reserve, are too short to judge. 114 of the 163 members of `LIBC16.LIB` are judged, and 121 in `LIBC16C.LIB` and `LIBC16L.LIB`; the highest best score is still 0.31 (`spawnve` and `spawnvpe`, compact and large).
+
+Results for 0.21: `bufio`, changed (857 to 1,237 runs), scores at most 0.04. 124 of the 175 members of `LIBC16.LIB` are judged, and 131 in `LIBC16C.LIB` and `LIBC16L.LIB`; no member scores over 0.50.
 
 Results for 0.20: `glob` (494 to 701 runs) scores at most 0.02 and `globfree` (30 to 56) at most 0.05. 124 of the 175 members of `LIBC16.LIB` are judged, and 131 in `LIBC16C.LIB` and `LIBC16L.LIB`; no member scores over 0.50.
 

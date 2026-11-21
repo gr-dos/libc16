@@ -79,15 +79,6 @@ static unsigned bufput(FILE *fp, const void *src, unsigned n)
     unsigned left = n, done = 0, earlier, room, k, w, need;
     unsigned char c;
 
-    if (!text && n >= fp->_bufsiz) {
-        /* Too large to be worth copying: what is pending, then the
-         * request, each in one write. */
-        earlier = (unsigned)(fp->_ptr - fp->_base);
-        k = flush(fp, &failed);
-        if (failed)
-            goto fail;
-        return put(fp, s, n);
-    }
     if (!text && (fp->_flag & _IOLBUF))
         for (k = 0; k < n; k++)
             if (s[k] == '\n')
@@ -95,6 +86,21 @@ static unsigned bufput(FILE *fp, const void *src, unsigned n)
     mark = fp->_ptr;    /* where this call's bytes start */
     for (;;) {
         d = fp->_ptr;
+        if (!text && d == fp->_base && left >= fp->_bufsiz) {
+            /* Nothing pending: whole buffers straight from the request,
+             * in one write and not copied, so that the writes stay
+             * multiples of the buffer's size; the rest is copied. */
+            w = left - left % fp->_bufsiz;
+            earlier = 0;
+            done = n - left;
+            k = put(fp, s, w);
+            if (k != w)
+                goto fail;
+            s += w;
+            left -= w;
+            if (left == 0)
+                break;
+        }
         room = fp->_bufsiz - (unsigned)(d - fp->_base);
         if (text) {
             while (left != 0) {
